@@ -4,7 +4,7 @@
 
 source $(dirname "$0")/solax.conf
 source $(dirname "$0")/solax.login.secret
-set LANG=cs_CZ,UTF-8
+#  set LANG=cs_CZ,UTF-8
 
 unsignedToSigned() {
   local value=$1
@@ -72,8 +72,8 @@ while true; do
 
   totalConsumption=$(echo "$totalGridIn + $totalProductionInclBatt - $totalGridOut" | bc)
   selfSufficiencyRate=$(echo "($totalProductionInclBatt - $totalGridOut) * 100 / $totalConsumption" | bc)
-  totalConsumption=${totalConsumption/./,}
-  selfSufficiencyRate=${selfSufficiencyRate/./,}
+  totalConsumption=${totalConsumption/./$decimalseparator}
+  selfSufficiencyRate=${selfSufficiencyRate/./$decimalseparator}
 
   totalPower=$((pv1Power + pv2Power))
   totalPeak=$((peak1 + peak2))
@@ -81,13 +81,16 @@ while true; do
   batteryPower=$(unsignedToSigned "$batteryPower")
   load=$(unsignedToSigned "$load")
   inverterPower=$(unsignedToSigned "$inverterPower")
-  totalProduction=${totalProduction/./,}
-  totalProductionInclBatt=${totalProductionInclBatt/./,}
-  totalGridIn=${totalGridIn/./,}
-  totalGridOut=${totalGridOut/./,}
-  totalChargedIn=${totalChargedIn/./,}
-  totalChargedOut=${totalChargedOut/./,}
-  batteryCap=${batteryCap/./,}
+
+  
+  totalProduction=${totalProduction/./$decimalseparator}
+  totalProductionInclBatt=${totalProductionInclBatt/./$decimalseparator}
+  totalGridIn=${totalGridIn/./$decimalseparator}
+  totalGridOut=${totalGridOut/./$decimalseparator}
+  totalChargedIn=${totalChargedIn/./$decimalseparator}
+  totalChargedOut=${totalChargedOut/./$decimalseparator}
+  batteryCap=${batteryCap/./$decimalseparator}
+
 
   clear
 
