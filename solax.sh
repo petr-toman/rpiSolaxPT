@@ -4,7 +4,7 @@
 
 source $(dirname "$0")/solax.conf
 source $(dirname "$0")/solax.login
-#  set LANG=cs_CZ,UTF-8
+
 
 unsignedToSigned() {
   local value=$1
@@ -57,7 +57,7 @@ inverterModeMap[8]="Self Test"
 inverterModeMap[9]="Idle"
 inverterModeMap[10]="Standby"
 
-divLine="-------------------------------------------------\r"
+divLine="------------------------------------------------\r"
 
  snhead="$sn" 
 [[ -z $passwd ]] && sn="$sn" || sn="$passwd"
