@@ -3,6 +3,8 @@
 # (c) 2024 Michal Politzer
 
 source $(dirname "$0")/solax.conf
+source $(dirname "$0")/solax.login.secret
+set LANG=cs_CZ,UTF-8
 
 unsignedToSigned() {
   local value=$1
@@ -31,6 +33,17 @@ progress_bar() {
   echo -n "[$progress_bar]"
 }
 
+[[ -z $url ]] && read -p "Invertor URL | IP address: " url ||  url="$url" 
+[[ -z $sn ]] && read -p "Invertor Registration No: " sn ||  sn="$sn" 
+[[ -z $passwd ]] &&read -p "Invertor passsword: " passwd  ||  passwd="$passwd" 
+
+cat <<EOF > solax.login
+url=$url
+sn=$sn
+passwd=$passwd
+EOF
+
+
 declare -a inverterModeMap
 inverterModeMap[0]="Waiting"
 inverterModeMap[1]="Checking"
@@ -46,8 +59,14 @@ inverterModeMap[10]="Standby"
 
 divLine="-------------------------------------------------\r"
 
+ snhead="$sn" 
+[[ -z $passwd ]] && sn="$sn" || sn="$passwd"
+
+
 while true; do
-  response=$(curl -s -d "optType=ReadRealTimeData&pwd=$sn" -X POST $url)
+  response=$(curl -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url 2>&1  )
+  echo $response
+
   data=$(echo "$response" | jq -r '[.Data[14], .Data[15], .Data[82] / 10, .Data[70] / 10, .Data[34], (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41], .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105], .Data[54], .Data[9], .Data[19]] | @tsv')
   read pv1Power pv2Power totalProduction totalProductionInclBatt feedInPower totalGridIn totalGridOut load batteryPower totalChargedIn totalChargedOut batterySoC batteryCap batteryTemp inverterTemp inverterPower inverterMode <<< "$data"
 
@@ -72,6 +91,11 @@ while true; do
 
   clear
 
+  echo "------------------------------------------------"
+  dt=$(date) 
+  echo $snhead "      "  $dt
+  echo "------------------------------------------------"
+  echo ""
   echo -ne "$divLine"
   echo -e "\033[3C PANELY "
   echo "        celkem: $(printf "%5d" "$totalPower") W   $(progress_bar $totalPower $totalPeak)"
