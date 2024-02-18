@@ -1,4 +1,6 @@
 Bash script for Raspberry Pi command line for online monitor Solax inverter
+fork from original project: https://github.com/mpl75/rpiSolax/
+
 
 ## Instalation
 - download to any directory (f.e. ~/rpiSolax)
