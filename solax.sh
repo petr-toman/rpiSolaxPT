@@ -150,7 +150,7 @@ while true; do
   symbols="/-\|"
   for ((w=0; w<$delay; w++)); do
     for ((i=0; i<${#symbols}; i++)); do
-      echo -n "   " "${symbols:$i:1}" " " "$(echo $delay - $w  | bc )" " " "${symbols:$i:1}"  "   " 
+      echo -n "                " "${symbols:$i:1}" " " "$(echo $delay - $w  | bc )" " " "${symbols:$i:1}"  "                    " 
       sleep 0.25
       echo -ne "\r" 
     done
