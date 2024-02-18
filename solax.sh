@@ -70,9 +70,15 @@ while true; do
   response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url 2>&1 )
 
   if [[  $debuglevel = 1  ]]; then
-     echo $(date '+ %F%  %H:%M:%S : '  )  $response > last_response.json
+     #  echo " { \"$(date '+ %F% %H:%M:%S'  )\" : "  $response "}"  > last_response.json
+     echo  $response  > last_response.json
+
+
   elif [[  $debuglevel > 1  ]]; then
-     echo  $(date '+ %F%  %H:%M:%S : '  ) $response >> last_response.json
+     #  echo  $(date '+ %F%  %H:%M:%S : '  ) $response >> last_response.json
+     #  echo " { \"$(date '+ %F% %H:%M:%S'  )\" : "  $response "}"  >> last_response.json
+      echo  $response  > last_response.json
+
   fi
 
   data=$(echo "$response" | jq -r '[.Data[14], .Data[15], .Data[82] / 10, .Data[70] / 10, .Data[34], (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41], .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105], .Data[54], .Data[9], .Data[19]] | @tsv')
