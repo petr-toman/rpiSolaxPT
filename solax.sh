@@ -2,11 +2,8 @@
 
 # (c) 2024 Michal Politzer
 
-
-
 source $(dirname "$0")/solax.conf
-source $(dirname "$0")/solax.login
-
+source $(dirname "$0")/solax.login 2>/dev/null
 
 # estimate different decimal separator (independent at locale, just test how printf behaves)
 decimalseparator=$(echo "$(printf "%1.1f" "3")")
@@ -69,9 +66,8 @@ divLine="------------------------------------------------\r"
  snhead="$sn" 
 [[ -z $passwd ]] && sn="$sn" || sn="$passwd"
 
-
 while true; do
-  response=$(curl -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url 2>&1  )
+  response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url 2>&1  )
   echo $response > last_response.json
 
   data=$(echo "$response" | jq -r '[.Data[14], .Data[15], .Data[82] / 10, .Data[70] / 10, .Data[34], (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41], .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105], .Data[54], .Data[9], .Data[19]] | @tsv')
