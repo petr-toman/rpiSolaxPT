@@ -8,10 +8,10 @@ source $(dirname "$0")/solax.conf
 source $(dirname "$0")/solax.login
 
 
-# estimate different decimal separator (independent at locale)
-decimalseparator=$(echo "scale=2 ; 7 / 2" | bc)
+# estimate different decimal separator (independent at locale, just test how printf behaves)
+decimalseparator=$(echo "$(printf "%1.1f" "3")")
 decimalseparator=${decimalseparator:1:1} 
-echo $decimalseparator
+
 
 unsignedToSigned() {
   local value=$1
