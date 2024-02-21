@@ -23,6 +23,8 @@ progress_bar() {
   local max=$2
   local bar_length=20
 
+  [[  $max=0 ]] && max=9999999999 ||  max="$max" 
+
   local progress=$((val * bar_length / max))
   local progress_bar=""
 
