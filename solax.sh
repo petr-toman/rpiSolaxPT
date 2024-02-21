@@ -5,6 +5,11 @@
 source $(dirname "$0")/solax.conf
 source $(dirname "$0")/solax.login 2>/dev/null
 
+colorDefault="\e[0m"
+colorPositive="\e[36m"
+colorNegative="\e[31m"
+colorDimmed="\e[2m"
+
 # estimate different decimal separator (independent at locale, just test how printf behaves)
 decimalseparator=$(echo "$(printf "%1.1f" "3")")
 decimalseparator=${decimalseparator:1:1} 
@@ -23,7 +28,8 @@ progress_bar() {
   local max=$2
   local bar_length=20
 
-  [[  $max=0 ]] && max=9999999999 ||  max="$max" 
+  [[ "$max" -eq "0" ]] && max=9999999999 ||  max="$max"  # prevent div zero
+
 
   local progress=$((val * bar_length / max))
   local progress_bar=""
@@ -39,9 +45,12 @@ progress_bar() {
   echo -n "[$progress_bar]"
 }
 
+
 [[ -z $url ]] && read -p "Invertor URL | IP address: " url ||  url="$url" 
 [[ -z $sn ]] && read -p "Invertor Registration No: " sn ||  sn="$sn" 
 [[ -z $passwd ]] &&read -p "Invertor passsword: " passwd  ||  passwd="$passwd" 
+
+SerNumCaption=$sn
 
 cat <<EOF > solax.login
 url=$url
@@ -65,32 +74,26 @@ inverterModeMap[10]="Standby"
 
 divLine="------------------------------------------------\r"
 
- snhead="$sn" 
 [[ -z $passwd ]] && sn="$sn" || sn="$passwd"
 
 while true; do
-  response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url 2>&1 )
 
+  response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url )
+
+  data=$(echo "$response" | jq -r '[.sn,   .Data[14], .Data[15], .Data[82] / 10,  .Data[70] / 10,         .Data[34],  (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41],   .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105],  .Data[54],   .Data[9],     .Data[19]] | @tsv')
+                                read SerNum pv1Power   pv2Power  totalProduction  totalProductionInclBatt feedInPower totalGridIn                            totalGridOut                            load      batteryPower totalChargedIn  totalChargedOut batterySoC   batteryCap       batteryTemp inverterTemp inverterPower inverterMode <<< "$data"
 
   if [[  $debuglevel = 1  ]]; then
-     #  echo " { \"$(date '+ %F% %H:%M:%S'  )\" : "  $response "}"  > last_response.json
      echo  $response  > last_response.json
-
-
+     echo  $data      >> last_response.json
   elif [[  $debuglevel > 1  ]]; then
-     #  echo  $(date '+ %F%  %H:%M:%S : '  ) $response >> last_response.json
-     #  echo " { \"$(date '+ %F% %H:%M:%S'  )\" : "  $response "}"  >> last_response.json
-      echo  $response  > last_response.json
-
+      echo  $response  >> last_response.json
   fi
-
-  data=$(echo "$response" | jq -r '[.Data[14], .Data[15], .Data[82] / 10, .Data[70] / 10, .Data[34], (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41], .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105], .Data[54], .Data[9], .Data[19]] | @tsv')
-  read pv1Power pv2Power totalProduction totalProductionInclBatt feedInPower totalGridIn totalGridOut load batteryPower totalChargedIn totalChargedOut batterySoC batteryCap batteryTemp inverterTemp inverterPower inverterMode <<< "$data"
-
 
 
   totalConsumption=$(echo "$totalGridIn + $totalProductionInclBatt - $totalGridOut" | bc)
   selfSufficiencyRate=$(echo "($totalProductionInclBatt - $totalGridOut) * 100 / $totalConsumption" | bc)
+
   totalConsumption=${totalConsumption/./$decimalseparator}
   selfSufficiencyRate=${selfSufficiencyRate/./$decimalseparator}
 
@@ -112,38 +115,18 @@ while true; do
 
   clear
 
+  if [[ -z $SerNum  ]] ; then
+     printf "\e[0m \e[31mConnection error: $url \e[0m \n"
+     printf "$colorDimmed"
+     colorDefault=$colorDimmed
+     colorPositive=$colorDimmed
+     colorNegative=$colorDimmed     
+  fi
 
-
-  
-  # # # # 
-  #  todo: read some specific field in json, if emtpy / n/A) do printf (('connection errror'))
-BLACK=$(tput setaf 0)
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-YELLOW=$(tput setaf 3)
-LIME_YELLOW=$(tput setaf 190)
-POWDER_BLUE=$(tput setaf 153)
-BLUE=$(tput setaf 4)
-MAGENTA=$(tput setaf 5)
-CYAN=$(tput setaf 6)
-WHITE=$(tput setaf 7)
-BRIGHT=$(tput bold)
-NORMAL=$(tput sgr0)
-BLINK=$(tput blink)
-REVERSE=$(tput smso)
-UNDERLINE=$(tput smul)
-
-#echo "${RED}this is red ${NORMAL}this is normal"
-
-#printf "      \e[31m$ Offline"
-
-  # # # # 
-
-
-  echo "------------------------------------------------"
+  echo -e "$divLine"
   dt=$(date) 
-  echo $snhead "      "  $dt
-  echo "------------------------------------------------"
+  echo $SerNumCaption "      "  $dt
+   echo -e "$divLine"
   echo ""
   echo -ne "$divLine"
   echo -e "\033[3C PANELY "
@@ -157,9 +140,9 @@ UNDERLINE=$(tput smul)
   echo "                          $(printf "%3d" "$batterySoC") %        $(printf "%5d" "$batteryTemp") °C"
   echo "        nabití: $(printf "%5.1f" "$batteryCap") kWh $(progress_bar $batterySoC 100)"
   if ((batteryPower >= 0)); then
-    printf "      nabíjení: \e[36m$(printf "%5d" "$batteryPower") W\e[0m\n"
+    printf "      nabíjení: $colorPositive$(printf "%5d" "$batteryPower") W$colorDefault\n"
   else
-    printf "      vybíjení: \e[31m$(printf "%5d" "$batteryPower") W\e[0m\n"
+    printf "      vybíjení: $colorNegative$(printf "%5d" "$batteryPower") W$colorDefault\n"
   fi
   echo "   dnes nabito: $(printf "%5.1f" "$totalChargedIn") kWh"
   echo "        vybito: $(printf "%5.1f" "$totalChargedOut") kWh"
@@ -173,9 +156,9 @@ UNDERLINE=$(tput smul)
   echo -ne "$divLine"
   echo -e "\033[3C DISTRIBUČNÍ SÍŤ "
   if ((feedInPower < 0)); then
-    printf "         odběr: \e[31m$(printf "%5d" "$feedInPower") W\e[0m\n"
+    printf "         odběr: $colorNegative$(printf "%5d" "$feedInPower") W$colorDefault\n"
   else
-    printf "       dodávka: \e[36m$(printf "%5d" "$feedInPower") W\e[0m\n"
+    printf "       dodávka: $colorPositive$(printf "%5d" "$feedInPower") W$colorDefault\n"
   fi
   echo " dnes odebráno: $(printf "%5.2f" "$totalGridIn") kWh"
   echo "        dodáno: $(printf "%5.2f" "$totalGridOut") kWh"
@@ -186,6 +169,7 @@ UNDERLINE=$(tput smul)
   echo " dnes spotřeba: $(printf "%5.1f" "$totalConsumption") kWh"
   echo "  soběstačnost:   $(printf "%3d" "$selfSufficiencyRate") %   $(progress_bar $selfSufficiencyRate 100)"
   echo ""
+
 
   symbols="/-\|"
   for ((w=0; w<$delay; w++)); do
