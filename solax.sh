@@ -27,11 +27,11 @@ progress_bar() {
   local val=$1
   local max=$2
   local bar_length=20
+  local progress=0
 
-  [[ "$max" -eq "0" ]] && max=9999999999 ||  max="$max"  # prevent div zero
+  # prevent div zero
+  [[  $max=0 ]] && progress=0 ||  progress=$((val * bar_length / max))
 
-
-  local progress=$((val * bar_length / max))
   local progress_bar=""
 
   for ((i=0; i<bar_length; i++)); do
