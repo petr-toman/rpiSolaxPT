@@ -29,7 +29,11 @@ progress_bar() {
   local bar_length=20
 
   # prevent div zero
-  [ "$max" -eq "0" ]  && lc_progress=0 || lc_progress=$((val * bar_length / max))  
+  if [[ $max -eq 0 ]] ; then 
+    lc_progress=0 
+  else  
+    lc_progress=$((val * bar_length / max))  
+  fi 
 
   local progress_bar=""
 
