@@ -27,15 +27,14 @@ progress_bar() {
   local val=$1
   local max=$2
   local bar_length=20
-  local progress=0
 
   # prevent div zero
-  [[  $max=0 ]] && progress=0 ||  progress=$((val * bar_length / max))
+  [ "$max" -eq "0" ]  && lc_progress=0 || lc_progress=$((val * bar_length / max))  
 
   local progress_bar=""
 
   for ((i=0; i<bar_length; i++)); do
-    if (( i < progress )); then
+    if (( i < lc_progress )); then
       progress_bar+="#"
     else
       progress_bar+="_"
@@ -80,8 +79,8 @@ while true; do
 
   response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url )
 
-  data=$(echo "$response" | jq -r '[.sn,   .Data[14], .Data[15], .Data[82] / 10,  .Data[70] / 10,         .Data[34],  (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41],   .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105],  .Data[54],   .Data[9],     .Data[19]] | @tsv')
-                                read SerNum pv1Power   pv2Power  totalProduction  totalProductionInclBatt feedInPower totalGridIn                            totalGridOut                            load      batteryPower totalChargedIn  totalChargedOut batterySoC   batteryCap       batteryTemp inverterTemp inverterPower inverterMode <<< "$data"
+  data=$(echo "$response" | jq -r '[.sn,   .Data[14], .Data[15], .Data[82] / 10,  .Data[70] / 10,         .Data[34],  (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41],   .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105],  .Data[54],   .Data[9],     .Data[19],  .Data[6], .Data[7],  .Data[8]]  | @tsv')
+                                read SerNum pv1Power   pv2Power  totalProduction  totalProductionInclBatt feedInPower totalGridIn                            totalGridOut                            load      batteryPower totalChargedIn  totalChargedOut batterySoC   batteryCap       batteryTemp inverterTemp inverterPower inverterMode llph1 llph2 llph3 <<< "$data"
 
   if [[  $debuglevel = 1  ]]; then
      echo  $response  > last_response.json
@@ -151,6 +150,9 @@ while true; do
   echo -e "\033[3C STŘÍDAČ [${inverterModeMap[$inverterMode]}] "
   echo "                                       $(printf "%5d" "$inverterTemp") °C"
   echo "         výkon: $(printf "%5d" "$inverterPower") W   $(progress_bar $inverterPower $maxPower)"
+  echo "            L1: $(printf "%5d" "$llph1") W"
+  echo "            L2: $(printf "%5d" "$llph2") W"
+  echo "            L3: $(printf "%5d" "$llph3") W"
   echo "dnes výroba AC: $(printf "%5.1f" "$totalProductionInclBatt") kWh"
   echo ""
   echo -ne "$divLine"
@@ -169,7 +171,6 @@ while true; do
   echo " dnes spotřeba: $(printf "%5.1f" "$totalConsumption") kWh"
   echo "  soběstačnost:   $(printf "%3d" "$selfSufficiencyRate") %   $(progress_bar $selfSufficiencyRate 100)"
   echo ""
-
 
   symbols="/-\|"
   for ((w=0; w<$delay; w++)); do
