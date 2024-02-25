@@ -5,11 +5,6 @@
 source $(dirname "$0")/solax.conf
 source $(dirname "$0")/solax.login 2>/dev/null
 
-colorDefault="\e[0m"
-colorPositive="\e[36m"
-colorNegative="\e[31m"
-colorDimmed="\e[2m"
-
 # estimate different decimal separator (independent at locale, just test how printf behaves)
 decimalseparator=$(echo "$(printf "%1.1f" "3")")
 decimalseparator=${decimalseparator:1:1} 
@@ -119,11 +114,18 @@ while true; do
   clear
 
   if [[ -z $SerNum  ]] ; then
-     printf "\e[0m \e[31mConnection error: $url \e[0m \n"
-     printf "$colorDimmed"
+     colorDimmed="\e[2m"
      colorDefault=$colorDimmed
      colorPositive=$colorDimmed
-     colorNegative=$colorDimmed     
+     colorNegative=$colorDimmed   
+     printf "\e[0m \e[31mConnection error: $url \e[0m \n"
+     printf "$colorDimmed" 
+  else
+     colorDimmed="\e[2m"
+     colorDefault="\e[0m"
+     colorPositive="\e[36m"
+     colorNegative="\e[31m"
+     printf "$colorDefault"
   fi
 
   echo -e "$divLine"
