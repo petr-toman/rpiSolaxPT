@@ -13,3 +13,6 @@ fork from original project: https://github.com/mpl75/rpiSolax/
 ## Usage
 - enter yourDirectory/solax.sh (f.e. ~/rpiSolax/solax.sh)
 - press Ctrl + C to end script
+
+## USolax local API docs
+https://github.com/nazar-pc/solax-local-api-docs/tree/master

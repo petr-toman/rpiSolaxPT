@@ -15,6 +15,66 @@ decimalseparator=$(echo "$(printf "%1.1f" "3")")
 decimalseparator=${decimalseparator:1:1} 
 
 
+# Vytvoří JSON objekt dle mappingu a vypíše ho na stdout
+build_status_json() {
+  echo "$response" | jq -r '
+    # pomocné funkce bez parametrů (kompatibilní se starším jq)
+    def s16:  if . >= 32768 then . - 65536 else . end;
+    def u32:  .[0]*65536 + .[1];
+    def s32:  ((.[0]*65536 + .[1]) as $v | if $v >= 2147483648 then $v - 4294967296 else $v end);
+
+    {
+      Yield_Today:          (.Data[70] / 10),
+      Yield_Total:          ([.Data[68], .Data[69]] | u32 / 10),
+      PowerDc1:             .Data[14],
+      PowerDc2:             .Data[15],
+      BAT_Power:            (.Data[41] | s16),
+      feedInPower:          ([.Data[34], .Data[35]] | s32),
+      GridAPower:           (.Data[6]  | s16),
+      GridBPower:           (.Data[7]  | s16),
+      GridCPower:           (.Data[8]  | s16),
+      FeedInEnergy:         ([.Data[86], .Data[87]] | u32 / 100),
+      ConsumeEnergy:        ([.Data[88], .Data[89]] | u32 / 100),
+      RunMode:              .Data[19],
+      EPSAPower:            (.Data[29] | s16),
+      EPSBPower:            (.Data[30] | s16),
+      EPSCPower:            (.Data[31] | s16),
+      Vdc1:                 (.Data[10] / 10),
+      Vdc2:                 (.Data[11] / 10),
+      Idc1:                 (.Data[12] / 10),
+      Idc2:                 (.Data[13] / 10),
+      EPSAVoltage:          (.Data[23] / 10),
+      EPSBVoltage:          (.Data[24] / 10),
+      EPSCVoltage:          (.Data[25] / 10),
+      EPSACurrent:          (.Data[26] | s16 / 10),
+      EPSBCurrent:          (.Data[27] | s16 / 10),
+      EPSCCurrent:          (.Data[28] | s16 / 10),
+      BatteryCapacity:      .Data[103],
+      BatteryVoltage:       ([.Data[169], .Data[170]] | u32 / 100),
+      BatteryTemperature:   (.Data[105] | s16),
+      GridAVoltage:         (.Data[0] / 10),
+      GridBVoltage:         (.Data[1] / 10),
+      GridCVoltage:         (.Data[2] / 10),
+      GridACurrent:         (.Data[3] | s16 / 10),
+      GridBCurrent:         (.Data[4] | s16 / 10),
+      GridCCurrent:         (.Data[5] | s16 / 10),
+      FreqacA:              (.Data[16] / 100),
+      FreqacB:              (.Data[17] / 100),
+      FreqacC:              (.Data[18] / 100),
+       SerNum:               .sn,
+      totalProduction:      (.Data[82] / 10),
+      totalGridIn:          ([.Data[93], .Data[92]] | u32 / 100),
+      totalGridOut:         ([.Data[91], .Data[90]] | u32 / 100),
+      load:                 .Data[47],
+      totalChargedIn:       (.Data[79] / 10),
+      totalChargedOut:      (.Data[78] / 10),
+      batteryCap:           (.Data[106] / 10),
+      inverterTemp:         .Data[54],
+      inverterPower:        .Data[9]
+    }'
+}
+
+
 unsignedToSigned() {
   local value=$1
   if ((value > 32767)); then
@@ -84,7 +144,10 @@ while true; do
 
   if [[  $debuglevel = 1  ]]; then
      echo  $response  > last_response.json
+     build_status_json >> last_response.json
      echo  $data      >> last_response.json
+
+
   elif [[  $debuglevel > 1  ]]; then
       echo  $response  >> last_response.json
   fi

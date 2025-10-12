@@ -1,0 +1,17 @@
+services:
+  web:
+    image: php:8.2-apache
+    container_name: solax-web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./web:/var/www/html
+    environment:
+      # volitelné: povolí režim host network (Linux) => přímý přístup na LAN
+      # TIP: pokud nepotřebuješ, smaž řádek níže a nech default bridge
+      # nicméně u bridge obvykle přístup na LAN taky funguje
+      APACHE_RUN_USER: www-data
+      APACHE_RUN_GROUP: www-data
+    # Pokud víš, že potřebuješ "host" networking (např. přístup k 192.168.x.x přes FW),
+    # odkomentuj následující, ale POZOR: funguje jen na Linux hostech.
+    # network_mode: "host"
