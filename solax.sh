@@ -1,4 +1,5 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 source "$(dirname "$0")/solax.conf" 2>/dev/null
 # Konfigurace FVE: Pokud něco chybí, doptej se nebo nastav výchozí hodnoty a ulož soubor
@@ -60,8 +61,8 @@ build_status_json() {
         SerNum:                  (.sn // null),
         PowerDc1:                (.Data[14] // 0),
         PowerDc2:                (.Data[15] // 0),
-        totalProduction:         ((.Data[82] // 0) / 10),   # kWh (DC today)
-        Yield_Today:             ((.Data[70] // 0) / 10),   # kWh (AC today)
+        ProductionDC_Today:      ((.Data[82] // 0) / 10),   # kWh (DC today)
+        YieldAC_Today:             ((.Data[70] // 0) / 10),   # kWh (AC today)
         feedInPower:             s16(.Data[34] // 0),
         _feedInPower:            s32(.Data[34] // 0; .Data[35] // 0),
         totalGridIn:             (u32(.Data[93] // 0; .Data[92] // 0) / 100),
@@ -76,51 +77,51 @@ build_status_json() {
         inverterTemp:            (.Data[54] // 0),
         inverterPower:           s16(.Data[9] // 0),
         inverterMode:            (.Data[19] // 0),
-        GridL1Power:               s16(.Data[6] // 0),
-        GridL2Power:               s16(.Data[7] // 0),
-        GridL3Power:               s16(.Data[8] // 0),
-        _Yield_Total:             (u32(.Data[68] // 0; .Data[69] // 0) / 10),
-        _FeedInEnergy:            (u32(.Data[86] // 0; .Data[87] // 0) / 100),
-        _ConsumeEnergy:           (u32(.Data[88] // 0; .Data[89] // 0) / 100),
-        _EPSAPower:               s16(.Data[29] // 0),
-        _EPSBPower:               s16(.Data[30] // 0),
-        _EPSCPower:               s16(.Data[31] // 0),
-        _Vdc1:                    ((.Data[10] // 0) / 10),
-        _Vdc2:                    ((.Data[11] // 0) / 10),
-        _Idc1:                    ((.Data[12] // 0) / 10),
-        _Idc2:                    ((.Data[13] // 0) / 10),
-        _EPSAVoltage:             ((.Data[23] // 0) / 10),
-        _EPSBVoltage:             ((.Data[24] // 0) / 10),
-        _EPSCVoltage:             ((.Data[25] // 0) / 10),
-        _EPSACurrent:             (s16(.Data[26] // 0) / 10),
-        _EPSBCurrent:             (s16(.Data[27] // 0) / 10),
-        _EPSCCurrent:             (s16(.Data[28] // 0) / 10),
-        _BatteryVoltage:          (u32(.Data[169] // 0; .Data[170] // 0) / 100),
-        _GridL1Voltage:            ((.Data[0] // 0) / 10),
-        _GridL2Voltage:            ((.Data[1] // 0) / 10),
-        _GridL3Voltage:            ((.Data[2] // 0) / 10),
-        _GridL1Current:            (s16(.Data[3] // 0) / 10),
-        _GridL2Current:            (s16(.Data[4] // 0) / 10),
-        _GridL3Current:            (s16(.Data[5] // 0) / 10),
-        _FreqacA:                 ((.Data[16] // 0) / 100),
-        _FreqacB:                 ((.Data[17] // 0) / 100),
-        _FreqacC:                 ((.Data[18] // 0) / 100)
+        GridL1Power:             s16(.Data[6] // 0),
+        GridL2Power:             s16(.Data[7] // 0),
+        GridL3Power:             s16(.Data[8] // 0),
+        _Yield_Total:            (u32(.Data[68] // 0; .Data[69] // 0) / 10),
+        _FeedInEnergy:           (u32(.Data[86] // 0; .Data[87] // 0) / 100),
+        _ConsumeEnergy:          (u32(.Data[88] // 0; .Data[89] // 0) / 100),
+        _EPSAPower:              s16(.Data[29] // 0),
+        _EPSBPower:              s16(.Data[30] // 0),
+        _EPSCPower:              s16(.Data[31] // 0),
+        _Vdc1:                   ((.Data[10] // 0) / 10),
+        _Vdc2:                   ((.Data[11] // 0) / 10),
+        _Idc1:                   ((.Data[12] // 0) / 10),
+        _Idc2:                   ((.Data[13] // 0) / 10),
+        _EPSAVoltage:            ((.Data[23] // 0) / 10),
+        _EPSBVoltage:            ((.Data[24] // 0) / 10),
+        _EPSCVoltage:            ((.Data[25] // 0) / 10),
+        _EPSACurrent:            (s16(.Data[26] // 0) / 10),
+        _EPSBCurrent:            (s16(.Data[27] // 0) / 10),
+        _EPSCCurrent:            (s16(.Data[28] // 0) / 10),
+        _BatteryVoltage:         (u32(.Data[169] // 0; .Data[170] // 0) / 100),
+        _GridL1Voltage:          ((.Data[0] // 0) / 10),
+        _GridL2Voltage:          ((.Data[1] // 0) / 10),
+        _GridL3Voltage:          ((.Data[2] // 0) / 10),
+        _GridL1Current:          (s16(.Data[3] // 0) / 10),
+        _GridL2Current:          (s16(.Data[4] // 0) / 10),
+        _GridL3Current:          (s16(.Data[5] // 0) / 10),
+        _FreqacA:                ((.Data[16] // 0) / 100),
+        _FreqacB:                ((.Data[17] // 0) / 100),
+        _FreqacC:                ((.Data[18] // 0) / 100)
       } as $o
       # 2) dopočty z již hotového $o
       | $o + {
           totalConsumption:      (($o.totalGridIn // 0)
-                                  + ($o.Yield_Today // 0)
+                                  + ($o.YieldAC_Today // 0)
                                   - ($o.totalGridOut // 0)),
           selfSufficiencyRate:   ( if (($o.totalGridIn // 0)
-                                        + ($o.Yield_Today // 0)
+                                        + ($o.YieldAC_Today // 0)
                                         - ($o.totalGridOut // 0)) == 0
                                    then 0
                                    else (
-                                     (($o.Yield_Today // 0)
+                                     (($o.YieldAC_Today // 0)
                                       - ($o.totalGridOut // 0)) * 100
                                      /
                                      (($o.totalGridIn // 0)
-                                      + ($o.Yield_Today // 0)
+                                      + ($o.YieldAC_Today // 0)
                                       - ($o.totalGridOut // 0))
                                    )
                                    end ),
@@ -134,8 +135,9 @@ build_status_json() {
 
 
 progress_bar() {
-  local val=$1
-  local max=$2
+
+  local val=${1:-0}
+  local max=${2:-0}
   local bar_length=20
 
   # prevent div zero
@@ -180,8 +182,8 @@ while true; do
    .sn,                                    # SerNum
    .Data[14],                              # PowerDc1  (W)
    .Data[15],                              # PowerDc2  (W)
-   .Data[82] / 10,                         # totalProduction (DC today, kWh)
-   .Data[70] / 10,                         # Yield_Today (AC today, kWh)
+   .Data[82] / 10,                         # ProductionDC_Today (DC today, kWh)
+   .Data[70] / 10,                         # YieldAC_Today (AC today, kWh)
    (s16(.Data[34])),                       # feedInPower 
    (.Data[93] * 65536 + .Data[92]) / 100,  # totalGridIn  (kWh)
    (.Data[91] * 65536 + .Data[90]) / 100,  # totalGridOut (kWh)
@@ -201,8 +203,8 @@ while true; do
 read SerNum \
      PowerDc1 \
      PowerDc2 \
-     totalProduction \
-     Yield_Today \
+     ProductionDC_Today \
+     YieldAC_Today \
      feedInPower \
      totalGridIn \
      totalGridOut \
@@ -219,16 +221,16 @@ read SerNum \
      GridL1Power GridL2Power GridL3Power  <<< "$data"  
 
 
-  totalConsumption=$(echo "$totalGridIn + $Yield_Today - $totalGridOut" | bc)
-  selfSufficiencyRate=$(echo "($Yield_Today - $totalGridOut) * 100 / $totalConsumption" | bc)
+  totalConsumption=$(echo "$totalGridIn + $YieldAC_Today - $totalGridOut" | bc)
+  selfSufficiencyRate=$(echo "($YieldAC_Today - $totalGridOut) * 100 / $totalConsumption" | bc)
   PowerDCtotal=$((PowerDc1 + PowerDc2))
   totalPeak=$((peak1 + peak2))
 
 
   totalConsumption=${totalConsumption/./$decimalseparator}
   selfSufficiencyRate=${selfSufficiencyRate/./$decimalseparator}
-  totalProduction=${totalProduction/./$decimalseparator}
-  Yield_Today=${Yield_Today/./$decimalseparator}
+  ProductionDC_Today=${ProductionDC_Today/./$decimalseparator}
+  YieldAC_Today=${YieldAC_Today/./$decimalseparator}
   totalGridIn=${totalGridIn/./$decimalseparator}
   totalGridOut=${totalGridOut/./$decimalseparator}
   totalChargedIn=${totalChargedIn/./$decimalseparator}
@@ -272,7 +274,7 @@ read SerNum \
   echo "        celkem: $(printf "%5d" "$PowerDCtotal") W   $(progress_bar $PowerDCtotal $totalPeak)"
   echo "      string 1: $(printf "%5d" "$PowerDc1") W   $(progress_bar $PowerDc1 $peak1)"
   echo "      string 2: $(printf "%5d" "$PowerDc2") W   $(progress_bar $PowerDc2 $peak2)"
-  echo "dnes výroba DC: $(printf "%5.1f" "$totalProduction") kWh"
+  echo "dnes výroba DC: $(printf "%5.1f" "$ProductionDC_Today") kWh"
   echo ""
 ##################################################################################################################  
   echo -ne "$divLine"
@@ -295,7 +297,7 @@ read SerNum \
   echo "            L1: $(printf "%5d" "$GridL1Power") W"
   echo "            L2: $(printf "%5d" "$GridL2Power") W"
   echo "            L3: $(printf "%5d" "$GridL3Power") W"
-  echo "dnes výroba AC: $(printf "%5.1f" "$Yield_Today") kWh"
+  echo "dnes výroba AC: $(printf "%5.1f" "$YieldAC_Today") kWh"
   echo ""
 ##################################################################################################################  
   echo -ne "$divLine"
