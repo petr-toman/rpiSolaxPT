@@ -139,8 +139,78 @@ while true; do
 
   response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url )
 
-  data=$(echo "$response" | jq -r '[.sn,   .Data[14], .Data[15], .Data[82] / 10,  .Data[70] / 10,         .Data[34],  (.Data[93] * 65536 + .Data[92]) / 100, (.Data[91] * 65536 + .Data[90]) / 100, .Data[47], .Data[41],   .Data[79] / 10, .Data[78] / 10, .Data[103], .Data[106] / 10, .Data[105],  .Data[54],   .Data[9],     .Data[19],  .Data[6], .Data[7],  .Data[8]]  | @tsv')
-                                read SerNum pv1Power   pv2Power  totalProduction  totalProductionInclBatt feedInPower totalGridIn                            totalGridOut                            load      batteryPower totalChargedIn  totalChargedOut batterySoC   batteryCap       batteryTemp inverterTemp inverterPower inverterMode llph1 llph2 llph3 <<< "$data"
+  data=$(echo "$response" | jq -r '
+       def s16(x): if x >= 32768 then x - 65536 else x end;
+       def s32(hi; lo):
+            ((hi * 65536) + lo) as $v
+           | if $v >= 2147483648 then $v - 4294967296 else $v end;
+
+  [
+   .sn, #SerNum
+   .Data[14],                        # pv1Power  (W)
+   .Data[15],                        # pv2Power  (W)
+   .Data[82] / 10,                   # totalProduction (DC today, kWh)
+   .Data[70] / 10,                   # totalProductionInclBatt (AC today, kWh)
+   (s16(.Data[34])),                 # feedInPower 
+   (.Data[93] * 65536 + .Data[92]) / 100,  # totalGridIn  (kWh)
+   (.Data[91] * 65536 + .Data[90]) / 100,  # totalGridOut (kWh)
+   (s16(.Data[47])),                 # load (W)
+   (s16(.Data[41])),                 # batteryPower (W)
+   .Data[79] / 10,                   # totalChargedIn (kWh)
+   .Data[78] / 10,                   # totalChargedOut (kWh)
+   .Data[103],                       # batterySoC (%)
+   .Data[106] / 10,                  # batteryCap (kWh today)
+   .Data[105],                       # batteryTemp (°C)
+   .Data[54],                        # inverterTemp (°C)
+   (s16(.Data[9])),                  # inverterPower (W)
+   .Data[19],                        # inverterMode (enum)
+   .Data[6], .Data[7], .Data[8],      # llph1/llph2/llph3 (W, per-phase)
+   ((.Data[93]*65536 + .Data[92]) / 100 + (.Data[70]/10) - ((.Data[91]*65536 + .Data[90]) / 100)) # dopočet: totalConsumption = totalGridIn + totalProductionInclBatt - totalGridOut
+
+  ] | @tsv' )     # neboli řada hodnot oddělená tabuláterom, které pak read načte do jednotlivých env proměnných
+  
+read SerNum \
+     pv1Power \
+     pv2Power \
+     totalProduction \
+     totalProductionInclBatt \
+     feedInPower \
+     totalGridIn \
+     totalGridOut \
+     load \
+     batteryPower \
+     totalChargedIn \
+     totalChargedOut \
+     batterySoC \
+     batteryCap \
+     batteryTemp \
+     inverterTemp \
+     inverterPower \
+     inverterMode \
+     llph1 llph2 llph3 \
+     totalConsumption  <<< "$data"  
+
+
+  #feedInPower=$(unsignedToSigned "$feedInPower")
+  #batteryPower=$(unsignedToSigned "$batteryPower")
+  #load=$(unsignedToSigned "$load")
+  #inverterPower=$(unsignedToSigned "$inverterPower")
+  #ftotalConsumption=$(echo "$totalGridIn + $totalProductionInclBatt - $totalGridOut" | bc)
+  selfSufficiencyRate=$(echo "($totalProductionInclBatt - $totalGridOut) * 100 / $totalConsumption" | bc)
+  totalPower=$((pv1Power + pv2Power))
+  totalPeak=$((peak1 + peak2))
+
+  totalConsumption=${totalConsumption/./$decimalseparator}
+  selfSufficiencyRate=${selfSufficiencyRate/./$decimalseparator}
+
+  totalProduction=${totalProduction/./$decimalseparator}
+  totalProductionInclBatt=${totalProductionInclBatt/./$decimalseparator}
+  totalGridIn=${totalGridIn/./$decimalseparator}
+  totalGridOut=${totalGridOut/./$decimalseparator}
+  totalChargedIn=${totalChargedIn/./$decimalseparator}
+  totalChargedOut=${totalChargedOut/./$decimalseparator}
+  batteryCap=${batteryCap/./$decimalseparator}
+
 
   if [[  $debuglevel = 1  ]]; then
      echo  $response  > last_response.json
@@ -153,27 +223,9 @@ while true; do
   fi
 
 
-  totalConsumption=$(echo "$totalGridIn + $totalProductionInclBatt - $totalGridOut" | bc)
-  selfSufficiencyRate=$(echo "($totalProductionInclBatt - $totalGridOut) * 100 / $totalConsumption" | bc)
-
-  totalConsumption=${totalConsumption/./$decimalseparator}
-  selfSufficiencyRate=${selfSufficiencyRate/./$decimalseparator}
-
-  totalPower=$((pv1Power + pv2Power))
-  totalPeak=$((peak1 + peak2))
-  feedInPower=$(unsignedToSigned "$feedInPower")
-  batteryPower=$(unsignedToSigned "$batteryPower")
-  load=$(unsignedToSigned "$load")
-  inverterPower=$(unsignedToSigned "$inverterPower")
-
-  
-  totalProduction=${totalProduction/./$decimalseparator}
-  totalProductionInclBatt=${totalProductionInclBatt/./$decimalseparator}
-  totalGridIn=${totalGridIn/./$decimalseparator}
-  totalGridOut=${totalGridOut/./$decimalseparator}
-  totalChargedIn=${totalChargedIn/./$decimalseparator}
-  totalChargedOut=${totalChargedOut/./$decimalseparator}
-  batteryCap=${batteryCap/./$decimalseparator}
+##################################################################################################################
+#máme načteno a upraveno, jdeme s tím na obrazovku:
+##################################################################################################################
 
   clear
 
@@ -184,12 +236,13 @@ while true; do
      colorPositive=$colorDimmed
      colorNegative=$colorDimmed     
   fi
-
+##################################################################################################################
   echo -e "$divLine"
   dt=$(date) 
   echo $SerNumCaption "      "  $dt
    echo -e "$divLine"
   echo ""
+##################################################################################################################  
   echo -ne "$divLine"
   echo -e "\033[3C PANELY "
   echo "        celkem: $(printf "%5d" "$totalPower") W   $(progress_bar $totalPower $totalPeak)"
@@ -197,6 +250,7 @@ while true; do
   echo "      string 2: $(printf "%5d" "$pv2Power") W   $(progress_bar $pv2Power $peak2)"
   echo "dnes výroba DC: $(printf "%5.1f" "$totalProduction") kWh"
   echo ""
+##################################################################################################################  
   echo -ne "$divLine"
   echo -e "\033[3C BATERIE "
   echo "                          $(printf "%3d" "$batterySoC") %        $(printf "%5d" "$batteryTemp") °C"
@@ -209,6 +263,7 @@ while true; do
   echo "   dnes nabito: $(printf "%5.1f" "$totalChargedIn") kWh"
   echo "        vybito: $(printf "%5.1f" "$totalChargedOut") kWh"
   echo ""
+##################################################################################################################  
   echo -ne "$divLine"
   echo -e "\033[3C STŘÍDAČ [${inverterModeMap[$inverterMode]}] "
   echo "                                       $(printf "%5d" "$inverterTemp") °C"
@@ -218,6 +273,7 @@ while true; do
   echo "            L3: $(printf "%5d" "$llph3") W"
   echo "dnes výroba AC: $(printf "%5.1f" "$totalProductionInclBatt") kWh"
   echo ""
+##################################################################################################################  
   echo -ne "$divLine"
   echo -e "\033[3C DISTRIBUČNÍ SÍŤ "
   if ((feedInPower < 0)); then
@@ -234,7 +290,7 @@ while true; do
   echo " dnes spotřeba: $(printf "%5.1f" "$totalConsumption") kWh"
   echo "  soběstačnost:   $(printf "%3d" "$selfSufficiencyRate") %   $(progress_bar $selfSufficiencyRate 100)"
   echo ""
-
+##################################################################################################################
   symbols="/-\|"
   for ((w=0; w<$delay; w++)); do
     for ((i=0; i<${#symbols}; i++)); do
@@ -244,3 +300,4 @@ while true; do
     done
   done
 done
+##################################################################################################################
