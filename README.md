@@ -16,3 +16,6 @@ fork from original project: https://github.com/mpl75/rpiSolax/
 
 ## USolax local API docs
 https://github.com/nazar-pc/solax-local-api-docs/tree/master
+
+## USolax local API mockup 
+for test there is solax_mockup, which simulates responses of real solax. this is for debugging.
