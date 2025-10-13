@@ -1,19 +1,17 @@
-# simple Apache + PHP image that serves solax.php and data.json
+# --- Dockerfile ---
 FROM php:8.2-apache
 
-# set working dir
 WORKDIR /var/www/html
 
-# copy simulator files into image
-# expected files in build context: solax.php, data.json
-COPY solax.php /var/www/html/solax.php
+# zabuduj výchozí soubory (funguje i bez volume)
+COPY index.php /var/www/html/solax.php
 COPY data.json /var/www/html/data.json
 
-# create writable state dir for index file
+# vytvoř zapisovatelný stav
 RUN mkdir -p /var/www/html/state && chown -R www-data:www-data /var/www/html/state
 
-# expose port and optional healthcheck
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD curl -sf http://localhost/solax.php || exit 1
+
