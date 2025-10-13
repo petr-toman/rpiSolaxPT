@@ -213,9 +213,9 @@ read SerNum \
 
 
   if [[  $debuglevel = 1  ]]; then
-     echo  $response  > last_response.json
-     build_status_json >> last_response.json
-     echo  $data      >> last_response.json
+     echo  $response  >> log/last_response.json
+     build_status_json >> log/build_status_json.json
+     echo  $data      >> log/data.json
 
 
   elif [[  $debuglevel > 1  ]]; then
