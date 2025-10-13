@@ -1,9 +1,35 @@
 #!/bin/bash
 
-# (c) 2024 Michal Politzer
+source "$(dirname "$0")/solax.conf" 2>/dev/null
+# Konfigurace FVE: Pokud něco chybí, doptej se nebo nastav výchozí hodnoty a ulož soubor
+if [[ ! -f "solax.conf" || -z "$peak1" || -z "$peak2" || -z "$maxPower" || -z "$maxLoad" || -z "$delay" || -z "$debuglevel" ]]; then
+  [[ -z $peak1 ]]      && read -p "Peak String 1 panel power (W): " peak1
+  [[ -z $peak2 ]]      && read -p "Peak String 2 panel power (W): " peak2
+  [[ -z $maxPower ]]   && read -p "Max inverter power (W): " maxPower
+  [[ -z $maxLoad ]]    && read -p "Max house load i.e. 3 x 25A x 230V = 17250 (W): " maxLoad
+  [[ -z $delay ]]      && read -p "Refresh read delay (s): " delay
+  [[ -z $debuglevel ]] && read -p "Debug level (0: none, 1: last call only, 2: cumulated): " debuglevel
 
-source $(dirname "$0")/solax.conf
+  printf '%s\n' \
+    "peak1=${peak1:-4500}" \
+    "peak2=${peak2:-0}" \
+    "maxPower=${maxPower:-4500}" \
+    "maxLoad=${maxLoad:-16000}" \
+    "delay=${delay:-4}" \
+    "debuglevel=${debuglevel:-2}" \
+    > "solax.conf"
+  chmod 644 "solax.conf"
+fi
+
+
 source $(dirname "$0")/solax.login 2>/dev/null
+# login file: je tam url solaxu a heslo..., když neexistuje, zeptá se a vytvoří
+if [[ ! -f "solax.login" || -z "$url" || -z "$passwd" ]]; then
+[[ -z $url ]] && read -p "Invertor URL | IP address: " url ||  url="$url" 
+[[ -z $passwd ]] &&read -p "Invertor passsword: " passwd  ||  passwd="$passwd" 
+  printf '%s\n' "url=$url" "passwd=$passwd" > "solax.login"
+  chmod 600 "solax.login"
+fi
 
 colorDefault="\e[0m"
 colorPositive="\e[36m"
@@ -13,7 +39,6 @@ colorDimmed="\e[2m"
 # estimate different decimal separator (independent at locale, just test how printf behaves)
 decimalseparator=$(echo "$(printf "%1.1f" "3")")
 decimalseparator=${decimalseparator:1:1} 
-
 
 # Vytvoří JSON objekt dle mappingu a vypíše ho na stdout
 build_status_json() {
@@ -61,7 +86,7 @@ build_status_json() {
       FreqacA:              (.Data[16] / 100),
       FreqacB:              (.Data[17] / 100),
       FreqacC:              (.Data[18] / 100),
-       SerNum:               .sn,
+      SerNum:               .sn,
       totalProduction:      (.Data[82] / 10),
       totalGridIn:          ([.Data[93], .Data[92]] | u32 / 100),
       totalGridOut:         ([.Data[91], .Data[90]] | u32 / 100),
@@ -74,14 +99,6 @@ build_status_json() {
     }'
 }
 
-
-unsignedToSigned() {
-  local value=$1
-  if ((value > 32767)); then
-    value=$((value - 65536))
-  fi
-  echo "$value"
-}
 
 progress_bar() {
   local val=$1
@@ -105,19 +122,6 @@ progress_bar() {
 }
 
 
-[[ -z $url ]] && read -p "Invertor URL | IP address: " url ||  url="$url" 
-[[ -z $sn ]] && read -p "Invertor Registration No: " sn ||  sn="$sn" 
-[[ -z $passwd ]] &&read -p "Invertor passsword: " passwd  ||  passwd="$passwd" 
-
-SerNumCaption=$sn
-
-cat <<EOF > solax.login
-url=$url
-sn=$sn
-passwd=$passwd
-EOF
-
-
 declare -a inverterModeMap
 inverterModeMap[0]="Waiting"
 inverterModeMap[1]="Checking"
@@ -133,11 +137,9 @@ inverterModeMap[10]="Standby"
 
 divLine="------------------------------------------------\r"
 
-[[ -z $passwd ]] && sn="$sn" || sn="$passwd"
-
 while true; do
 
-  response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$sn" -X POST $url )
+  response=$(curl -m $delay -s -d  "optType=ReadRealTimeData&pwd=$passwd" -X POST $url )
 
   data=$(echo "$response" | jq -r '
        def s16(x): if x >= 32768 then x - 65536 else x end;
@@ -146,7 +148,7 @@ while true; do
            | if $v >= 2147483648 then $v - 4294967296 else $v end;
 
   [
-   .sn, #SerNum
+   .sn,                              #SerNum
    .Data[14],                        # pv1Power  (W)
    .Data[15],                        # pv2Power  (W)
    .Data[82] / 10,                   # totalProduction (DC today, kWh)
@@ -164,9 +166,7 @@ while true; do
    .Data[54],                        # inverterTemp (°C)
    (s16(.Data[9])),                  # inverterPower (W)
    .Data[19],                        # inverterMode (enum)
-   .Data[6], .Data[7], .Data[8],      # llph1/llph2/llph3 (W, per-phase)
-   ((.Data[93]*65536 + .Data[92]) / 100 + (.Data[70]/10) - ((.Data[91]*65536 + .Data[90]) / 100)) # dopočet: totalConsumption = totalGridIn + totalProductionInclBatt - totalGridOut
-
+   .Data[6], .Data[7], .Data[8]      # llph1/llph2/llph3 (W, per-phase)
   ] | @tsv' )     # neboli řada hodnot oddělená tabuláterom, které pak read načte do jednotlivých env proměnných
   
 read SerNum \
@@ -187,22 +187,17 @@ read SerNum \
      inverterTemp \
      inverterPower \
      inverterMode \
-     llph1 llph2 llph3 \
-     totalConsumption  <<< "$data"  
+     llph1 llph2 llph3  <<< "$data"  
 
 
-  #feedInPower=$(unsignedToSigned "$feedInPower")
-  #batteryPower=$(unsignedToSigned "$batteryPower")
-  #load=$(unsignedToSigned "$load")
-  #inverterPower=$(unsignedToSigned "$inverterPower")
-  #ftotalConsumption=$(echo "$totalGridIn + $totalProductionInclBatt - $totalGridOut" | bc)
+  totalConsumption=$(echo "$totalGridIn + $totalProductionInclBatt - $totalGridOut" | bc)
   selfSufficiencyRate=$(echo "($totalProductionInclBatt - $totalGridOut) * 100 / $totalConsumption" | bc)
   totalPower=$((pv1Power + pv2Power))
   totalPeak=$((peak1 + peak2))
 
+
   totalConsumption=${totalConsumption/./$decimalseparator}
   selfSufficiencyRate=${selfSufficiencyRate/./$decimalseparator}
-
   totalProduction=${totalProduction/./$decimalseparator}
   totalProductionInclBatt=${totalProductionInclBatt/./$decimalseparator}
   totalGridIn=${totalGridIn/./$decimalseparator}
@@ -213,13 +208,13 @@ read SerNum \
 
 
   if [[  $debuglevel = 1  ]]; then
+     echo  $response  > log/last_response.json
+     build_status_json > log/build_status_json.json
+     echo  $data      > log/data.json
+  elif [[  $debuglevel > 1  ]]; then
      echo  $response  >> log/last_response.json
      build_status_json >> log/build_status_json.json
      echo  $data      >> log/data.json
-
-
-  elif [[  $debuglevel > 1  ]]; then
-      echo  $response  >> last_response.json
   fi
 
 
@@ -239,7 +234,7 @@ read SerNum \
 ##################################################################################################################
   echo -e "$divLine"
   dt=$(date) 
-  echo $SerNumCaption "      "  $dt
+  echo $SerNum "      "  $dt
    echo -e "$divLine"
   echo ""
 ##################################################################################################################  
