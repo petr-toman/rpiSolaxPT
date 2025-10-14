@@ -20,6 +20,7 @@ if (empty($input)) {
 
 $url = $input['target'] ?? '';
 $pwd = $input['pwd'] ?? '';   // u některých modelů je to “registration no.”, u jiných skutečné heslo
+$proxy = $input['proxy'] ?? '';
 
 // --- základní validace ---
 if (!$url || !$pwd) {
@@ -50,6 +51,16 @@ curl_setopt_array($ch, [
   ]),
   CURLOPT_TIMEOUT        => 5,   // můžeš upravit
 ]);
+
+if ($proxy !== '') {
+  curl_setopt($ch, CURLOPT_PROXY, $proxy);
+} else {
+  // vynutit "bez proxy" i když jsou nastavené HTTP(S)_PROXY v env
+  curl_setopt($ch, CURLOPT_PROXY, '');
+  if (defined('CURLOPT_NOPROXY')) {
+    curl_setopt($ch, CURLOPT_NOPROXY, '*'); // pro jistotu
+  }
+}
 
 $response = curl_exec($ch);
 $errno    = curl_errno($ch);

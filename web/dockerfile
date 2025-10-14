@@ -3,11 +3,14 @@ FROM php:8.2-apache
 # Volitelně zapnout mod_rewrite (nepotřebné pro tento basic scénář)
 RUN a2enmod rewrite
 
+RUN apt-get update && apt-get install -y iputils-ping curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Zkopíruj UI + proxy
-# - index.html = tvoje HTML s JS (upravený fetch na /proxy.php)
+# - *.html = tvoje HTML s JS (upravený fetch na /proxy.php)
 # - proxy.php  = PHP proxy výše
-COPY index.html /var/www/html/index.html
-COPY proxy.php  /var/www/html/proxy.php
+COPY web/* /var/www/html/
+
 
 # Volitelné: healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://localhost/ || exit 1

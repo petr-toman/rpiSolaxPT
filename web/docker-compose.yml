@@ -3,7 +3,7 @@ services:
     image: php:8.2-apache
     container_name: solax-web
     ports:
-      - "8080:80"
+      - "8088:80"
     volumes:
       - ./web:/var/www/html
     environment:

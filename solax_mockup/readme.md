@@ -25,3 +25,10 @@ docker rm solax-sim
 cd solax_mockup && \
 docker stop solax-sim && docker rm solax-sim && docker run -d --name solax-sim -p 8081:80 solax-sim:latest && docker run -d --name solax-sim -p 8081:80 solax-sim:latest && \
 cd ..
+
+
+
+# spoj sítě, pokud si chceš pingnout z apky, která je taky hostovaná v dockeru...
+docker network create solax-net
+docker network connect solax-net solax-sim
+docker network connect solax-net solax-web
