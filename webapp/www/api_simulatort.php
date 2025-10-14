@@ -6,7 +6,7 @@
 declare(strict_types=1);
 
 $baseDir = __DIR__;
-$dataFile = $baseDir . '/data.json';
+$dataFile = $baseDir . '/api_simulator_data.json';
 $stateDir = $baseDir . '/state';
 $indexFile = $stateDir . '/index';
 
