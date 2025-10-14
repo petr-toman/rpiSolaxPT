@@ -27,7 +27,6 @@ docker stop solax-sim && docker rm solax-sim && docker run -d --name solax-sim -
 cd ..
 
 
-
 # spoj sítě, pokud si chceš pingnout z apky, která je taky hostovaná v dockeru...
 docker network create solax-net
 docker network connect solax-net solax-sim
