@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y iputils-ping curl \
 # Zkopíruj UI + proxy
 # - *.html = tvoje HTML s JS (upravený fetch na /proxy.php)
 # - proxy.php  = PHP proxy výše
-COPY web/* /var/www/html/
+COPY www/* /var/www/html/
 
 
 # Volitelné: healthcheck

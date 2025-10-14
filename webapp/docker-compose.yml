@@ -5,7 +5,7 @@ services:
     ports:
       - "8088:80"
     volumes:
-      - ./web:/var/www/html
+      - ./www:/var/www/html
     environment:
       # volitelné: povolí režim host network (Linux) => přímý přístup na LAN
       # TIP: pokud nepotřebuješ, smaž řádek níže a nech default bridge

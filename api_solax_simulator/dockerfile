@@ -4,8 +4,9 @@ FROM php:8.2-apache
 WORKDIR /var/www/html
 
 # zabuduj výchozí soubory (funguje i bez volume)
-COPY index.php /var/www/html/index.php
-COPY data.json /var/www/html/data.json
+COPY www/index.php /var/www/html/index.php
+COPY www/health.php /var/www/html/health.php
+COPY www/data.json /var/www/html/data.json
 
 # vytvoř zapisovatelný stav
 RUN mkdir -p /var/www/html/state && chown -R www-data:www-data /var/www/html/state
@@ -13,5 +14,5 @@ RUN mkdir -p /var/www/html/state && chown -R www-data:www-data /var/www/html/sta
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD curl -sf http://localhost/solax.php || exit 1
+  CMD curl -sf http://localhost/health.php || exit 1
 
