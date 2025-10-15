@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Solax – živá telemetrie (Light UI, fixed)</title>
+
+  <style>
+    :root{
+      --bg: #f7f9fc;
+      --surface: #ffffff;
+      --muted: #73819a;
+      --text: #1d2939;
+      --text-dim: #4b5565;
+      --border: #e9eef5;
+      --shadow: 0 2px 6px rgba(15, 23, 42, 0.06), 0 10px 24px rgba(15, 23, 42, 0.05);
+      --accent: #22c1c3;
+      --accent-2: #7de2d1;
+      --warning: #f59e0b;
+      --ok: #16a34a;
+      --bad: #ef4444;
+      --radius: 18px;
+      --bar-track: #eef2f7;
+      --bar-border: #e6ebf2;
+    }
+
+    html, body{ margin:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
+    [hidden]{ display:none !important; }
+    *{ box-sizing: border-box; }
+
+    header{
+      position: sticky; top: 0; z-index: 10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 14px 22px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    h1{ margin:0; font-size:18px; font-weight:600; color: var(--text-dim); }
+
+    /* >>> FIX: action bar is always above sidepanel/backdrop */
+    .header-actions{
+      position: fixed; top: 12px; right: 14px;
+      z-index: 9999; /* highest */
+      display:flex; align-items:center; gap: 10px; flex-wrap: wrap; row-gap: 8px;
+      pointer-events: auto;
+    }
+    .small-btn{
+      flex:0 0 auto;
+      padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+      background: #fff; color: var(--text); font-weight:600; font-size: 14px;
+      box-shadow: var(--shadow);
+      transition: transform .05s ease, box-shadow .2s ease, filter .2s ease;
+    }
+    .small-btn.ok{ background: linear-gradient(180deg, #20c997 0%, #10b981 100%); color: #fff; border-color: transparent; }
+    .small-btn.bad{ background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%); color: #fff; border-color: transparent; }
+    .small-btn[disabled]{ opacity:.7; cursor:not-allowed; }
+    .small-btn:hover{ filter: brightness(1.03); transform: translateY(-1px); }
+
+    .icon-btn{
+      position: static; width: 38px; height: 38px; flex: 0 0 38px;
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius: 12px; border: 1px solid var(--border);
+      background: #fff; cursor: pointer; box-shadow: var(--shadow);
+      transition: transform .05s ease, box-shadow .2s ease;
+    }
+    .icon-btn:hover{ transform: translateY(-1px); }
+    .icon{ width: 26px; height: 26px; display:block; }
+    .icon path{ stroke: #0f172a; stroke-width: 2.2; }
+
+    main{ padding: 20px; }
+    .grid{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: auto auto auto;
+      grid-template-areas:
+        ". panels ."
+        "batt inv grid"
+        ". home .";
+      gap: 22px;
+    }
+    /* Named areas for precise placement */
+    #card-panels{ grid-area: panels; }
+    #card-batt{ grid-area: batt; }
+    #card-inv{ grid-area: inv; }
+    #card-grid{ grid-area: grid; }
+    #card-home{ grid-area: home; }
+    /* Title meta */
+    .hdr-meta{ margin-left: 10px; color: var(--text-dim); font-weight: 500; font-size: 14px; }
+
+    .card{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+    .card h3{
+      margin: 0 0 12px 0; font-size: 15px; font-weight: 600;
+      color: var(--text-dim);
+      display:flex; align-items:center; gap:8px;
+    }
+    .kv{ display:grid; grid-template-columns: auto 1fr auto; gap: 10px 12px; align-items: center; font-size: 14px; }
+    .dim{ color: var(--muted); font-size: 12px; }
+    .pill{
+      font-variant-numeric: tabular-nums;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      box-shadow: var(--shadow);
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .bar{
+      height: 12px; background: var(--bar-track);
+      border: 1px solid var(--bar-border);
+      border-radius: 999px; overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+    }
+    .bar > i{ display:block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+    .ok{ color: var(--ok); } .bad{ color: var(--bad); }
+
+    /* Backdrop for sidepanel (click to close) */
+    .backdrop{
+      position: fixed; inset: 0; background: rgba(15,23,42,.18);
+      backdrop-filter: blur(1px);
+      opacity: 0; transition: opacity .2s ease;
+      z-index: 3500; /* under action bar (9999), above page */
+    }
+    .backdrop.open{ opacity: 1; }
+
+    /* Sidepanel: ensure below header-actions but above backdrop */
+    .sidepanel{
+      position: fixed; top:0; right:0; width: 420px; height: 100%;
+      background: var(--surface); border-left: 1px solid var(--border);
+      padding: 18px; overflow-y: auto; box-shadow: -8px 0 24px rgba(15, 23, 42, 0.08);
+      transform: translateX(100%); transition: transform .3s ease;
+      z-index: 3600; /* < header-actions(9999) and > backdrop(3500) */
+      pointer-events: auto;
+    }
+    .sidepanel.open{ transform: translateX(0); }
+    .sidepanel fieldset{ border:0; padding:0; margin:0; }
+    legend{ font-weight:600; color: var(--text-dim); }
+    label{ display:block; font-size: 12px; color: var(--muted); margin-top: 12px; }
+    input{
+      width:100%; padding: 10px 12px;
+      border-radius: 10px; border: 1px solid var(--border);
+      background: #fff; color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .footer{ color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+    @keyframes pulseGlow{ 0%{filter:brightness(1)} 50%{filter:brightness(1.1)} 100%{filter:brightness(1)} }
+    body.running #bar-inv, body.running #bar-home, body.running #bar-pv-total{ animation: pulseGlow 1.2s ease-in-out infinite; }
+
+    @media (max-width: 520px){
+      .grid{ grid-template-columns: 1fr; }
+      .sidepanel{ width: 92vw; }
+      .small-btn{ padding: 7px 11px; font-size: 13px; }
+      .icon{ width: 24px; height: 24px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Solax – živá telemetrie <span class="hdr-meta">| SN: <span id="sn">—</span> · <span id="dt">—</span></span></h1>
+
+    <div class="header-actions">
+      <a href="frontend_2_dark.html" class="icon-btn" >&#127767;</a>
+      <button id="start" class="small-btn ok" aria-pressed="false">Start</button>
+      <button id="stop"  class="small-btn bad" aria-pressed="false">Stop</button>
+      <button id="toggleSettings" class="icon-btn" aria-controls="settingsPanel" aria-expanded="false" title="Nastavení">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Backdrop sits above page but below header actions -->
+    <div id="panelBackdrop" class="backdrop" hidden></div>
+
+    <!-- Right sliding settings panel -->
+    <aside id="settingsPanel" class="sidepanel" hidden>
+      <form id="cfg">
+        <fieldset>
+          <legend>Nastavení</legend>
+
+          <label>API URL (Solax reálné API)
+            <input name="apiUrl" placeholder="http://solax-sim" />
+          </label>
+
+          <label><input type="checkbox" name="sendPwd" /> Posílat heslo z prohlížeče (nedoporučeno)</label>
+          <div id="pwdWrap" style="display:none">
+            <label>Heslo k API
+              <input name="passwd" type="password" autocomplete="current-password" />
+            </label>
+          </div>
+
+          <label>Proxy (pokud není Solax http API přímo dostupné)
+            <input name="proxy" placeholder="http://some-proxy:3128" />
+          </label>
+
+          <div class="row">
+            <div>
+              <label>Interval čtení (s)
+                <input name="delay" type="number" min="1" value="4" />
+              </label>
+            </div>
+            <div>
+              <label>Debug (0/1/2)
+                <input name="debuglevel" type="number" min="0" max="2" value="1" />
+              </label>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Peak String 1 (W)
+                <input name="peak1" type="number" min="0" value="4500" />
+              </label>
+            </div>
+            <div>
+              <label>Peak String 2 (W)
+                <input name="peak2" type="number" min="0" value="0" />
+              </label>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Max výkon měniče (W)
+                <input name="maxPower" type="number" min="0" value="4500" />
+              </label>
+            </div>
+            <div>
+              <label>Max odběr domu (W)
+                <input name="maxLoad" type="number" min="0" value="16000" />
+              </label>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Max energie baterie (Wh)
+                <input name="BatteryMaxCapacity" type="number" min="0" value="10000" />
+              </label>
+            </div>
+          </div>
+
+          <div class="footer">
+            Proxy endpoint je napevno <span class="mono">proxy.php</span>. Z bezpečnostních důvodů je lepší, aby <span class="mono">proxy.php</span> heslo doplnila na serveru.
+          </div>
+        </fieldset>
+      </form>
+    </aside>
+
+    <section class="grid">
+      <div class="card" id="card-panels">
+        <h3>Panely</h3>
+        <div class="kv">
+          <div class="dim">Celkem</div><div class="bar"><i id="bar-pv-total" style="width:0%"></i></div><div class="pill"><span id="pv-total">0</span> W</div>
+          <div class="dim">String 1</div><div class="bar"><i id="bar-pv-1" style="width:0%"></i></div><div class="pill"><span id="pv-1">0</span> W</div>
+          <div class="dim">String 2</div><div class="bar"><i id="bar-pv-2" style="width:0%"></i></div><div class="pill"><span id="pv-2">0</span> W</div>
+          <div class="dim">Výroba DC dnes</div><div></div><div class="pill"><span id="pv-dc-today">0.0</span> kWh</div>
+        </div>
+      </div>
+
+      <div class="card" id="card-batt">
+        <h3>Baterie</h3>
+        <div class="kv">
+          <div class="dim">SoC</div><div class="bar"><i id="bar-batt-soc" style="width:0%"></i></div><div class="pill"><span id="batt-soc">0</span> %</div>
+          <div class="dim">Teplota</div><div></div><div class="pill"><span id="batt-temp">0</span> °C</div>
+          <div class="dim">Energie (zbývající)</div><div class="bar"><i id="bar-batt-cap" style="width:0%"></i></div><div class="pill"><span id="batt-cap">0.0</span> kWh</div>
+          <div class="dim">Směr</div><div></div><div id="batt-power" class="pill">0 W</div>
+          <div class="dim">Dnes nabito</div><div></div><div class="pill"><span id="batt-in">0.0</span> kWh</div>
+          <div class="dim">Dnes vybito</div><div></div><div class="pill"><span id="batt-out">0.0</span> kWh</div>
+        </div>
+      </div>
+
+      <div class="card" id="card-inv">
+        <h3>Střídač <span id="inv-mode" class="dim"></span></h3>
+        <div class="kv">
+          <div class="dim">Teplota</div><div></div><div class="pill"><span id="inv-temp">0</span> °C</div>
+          <div class="dim">Výkon</div><div class="bar"><i id="bar-inv" style="width:0%"></i></div><div class="pill"><span id="inv-pwr">0</span> W</div>
+          <div class="dim">L1</div><div></div><div class="pill"><span id="l1">0</span> W</div>
+          <div class="dim">L2</div><div></div><div class="pill"><span id="l2">0</span> W</div>
+          <div class="dim">L3</div><div></div><div class="pill"><span id="l3">0</span> W</div>
+          <div class="dim">AC výroba dnes</div><div></div><div class="pill"><span id="inv-ac-today">0.0</span> kWh</div>
+        </div>
+      </div>
+
+      <div class="card" id="card-grid">
+        <h3>Distribuční síť</h3>
+        <div class="kv">
+          <div class="dim">Směr</div><div></div><div id="grid-dir" class="pill">0 W</div>
+          <div class="dim">Dnes odebráno</div><div></div><div class="pill"><span id="grid-in">0.00</span> kWh</div>
+          <div class="dim">Dnes dodáno</div><div></div><div class="pill"><span id="grid-out">0.00</span> kWh</div>
+        </div>
+      </div>
+
+      <div class="card" id="card-home">
+        <h3>Dům</h3>
+        <div class="kv">
+          <div class="dim">Aktuální odběr</div><div class="bar"><i id="bar-home" style="width:0%"></i></div><div class="pill"><span id="home-load">0</span> W</div>
+          <div class="dim">Dnes spotřeba</div><div></div><div class="pill"><span id="home-cons">0.0</span> kWh</div>
+          <div class="dim">Soběstačnost</div><div class="bar"><i id="bar-self" style="width:0%"></i></div><div class="pill"><span id="self">0</span> %</div>
+        </div>
+      </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const PROXY_ENDPOINT = 'proxy.php';
+    const CFG_KEY = 'solaxCfg2';
+    const INV_MODE = ["Waiting","Checking","Normal","Off","Permanent Fault","Updating","EPS Check","EPS Mode","Self Test","Idle","Standby"];
+
+    const el = (id)=>document.getElementById(id);
+    function s16(x){ x = (Number(x)||0); return x>=32768? x-65536 : x; }
+    function u32(hi,lo){ return ((Number(hi)||0)*65536)+(Number(lo)||0); }
+    function s32(hi,lo){ const v=u32(hi,lo); return v>=2147483648? v-4294967296 : v; }
+    function pct(val,max){ max=Number(max)||0; if(max<=0) return 0; return Math.max(0,Math.min(100,(val/max)*100)); }
+    function fmtN(x,d=0){ return (Number(x)||0).toLocaleString('cs-CZ',{maximumFractionDigits:d,minimumFractionDigits:d}); }
+    function debounce(fn,delay=300){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),delay); }; }
+    function getSavedCfg(){ try{return JSON.parse(localStorage.getItem(CFG_KEY)||'{}')}catch{return{}} }
+    function hasSavedCfg(){ const s=getSavedCfg(); return s&&Object.keys(s).length>0&&!!s.apiUrl; }
+
+    const settingsPanel = el('settingsPanel');
+    const backdrop = el('panelBackdrop');
+    const toggleBtn = el('toggleSettings');
+    const cfgForm = document.getElementById('cfg');
+    const pwdWrap = document.getElementById('pwdWrap');
+    const startBtn = el('start');
+    const stopBtn  = el('stop');
+
+    cfgForm.sendPwd.addEventListener('change',()=>{ pwdWrap.style.display = cfgForm.sendPwd.checked ? 'block':'none'; });
+
+    const saveCfg = debounce(()=>{
+      localStorage.setItem(CFG_KEY, JSON.stringify(formToCfg()));
+      console.log('[CFG] auto-save');
+    },300);
+    cfgForm.addEventListener('input', saveCfg);
+    cfgForm.addEventListener('change', saveCfg);
+
+    (function initCfgUI(){
+      const saved=getSavedCfg();
+      for(const k of ['apiUrl','delay','debuglevel','peak1','peak2','maxPower','maxLoad','sendPwd','passwd','proxy','BatteryMaxCapacity']){
+        if(saved[k]!==undefined){
+          if(k==='sendPwd') cfgForm[k].checked=!!saved[k];
+          else cfgForm[k].value=saved[k];
+        }
+      }
+      pwdWrap.style.display = cfgForm.sendPwd.checked ? 'block' : 'none';
+      const showOnLoad=!hasSavedCfg();
+      setPanel(showOnLoad);
+    })();
+
+    function setPanel(opened){
+      toggleBtn.setAttribute('aria-expanded', String(opened));
+      settingsPanel.classList.toggle('open', opened);
+      if(opened){
+        settingsPanel.removeAttribute('hidden');
+        backdrop.removeAttribute('hidden');
+        requestAnimationFrame(()=>backdrop.classList.add('open'));
+      }else{
+        settingsPanel.setAttribute('hidden','');
+        backdrop.classList.remove('open');
+        setTimeout(()=>backdrop.setAttribute('hidden',''), 200);
+      }
+    }
+
+    toggleBtn.addEventListener('click', ()=> setPanel(!settingsPanel.classList.contains('open')) );
+    backdrop.addEventListener('click', ()=> setPanel(false) );
+
+    let timer=null;
+    function setRunning(r){
+      startBtn.disabled=r;
+      stopBtn.disabled=!r;
+      startBtn.setAttribute('aria-pressed', String(r));
+      stopBtn.setAttribute('aria-pressed', String(!r));
+      document.body.classList.toggle('running', r);
+    }
+    setRunning(false);
+
+    startBtn.addEventListener('click', ()=> startPolling());
+    stopBtn.addEventListener('click', ()=>{ if(timer){clearInterval(timer); timer=null;} setRunning(false); });
+
+    function formToCfg(){
+      const f = cfgForm;
+      return {
+        apiUrl: f.apiUrl.value.trim(),
+        delay: Math.max(1, Number(f.delay.value)||4),
+        debuglevel: Math.max(0, Math.min(2, Number(f.debuglevel.value)||0)),
+        peak1: Number(f.peak1.value)||0,
+        peak2: Number(f.peak2.value)||0,
+        maxPower: Number(f.maxPower.value)||0,
+        maxLoad: Number(f.maxLoad.value)||0,
+        BatteryMaxCapacity: Number(f.BatteryMaxCapacity.value)||0,
+        sendPwd: !!f.sendPwd.checked,
+        passwd: f.passwd.value,
+        proxy:  f.proxy.value
+      };
+    }
+
+    async function callProxy(cfg){
+      if(!cfg.apiUrl) throw new Error('Není vyplněna API URL');
+      const body=new URLSearchParams();
+      body.set('target', cfg.apiUrl);
+      body.set('proxy', cfg.proxy || '');
+      body.set('optType','ReadRealTimeData');
+      if(cfg.sendPwd && cfg.passwd) body.set('pwd', cfg.passwd);
+      const res=await fetch(PROXY_ENDPOINT,{ method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    }
+
+    function buildStatus(o,cfg){
+      const D=o.Data||[];
+      const s={
+        SerNum:o.sn??null,
+        PowerDc1:Number(D[14]||0),
+        PowerDc2:Number(D[15]||0),
+        ProductionDC_Today:Number(D[82]||0)/10,
+        YieldAC_Today:Number(D[70]||0)/10,
+        feedInPower:s16(Number(D[34]||0)),
+        _feedInPower:s32(Number(D[34]||0),Number(D[35]||0)),
+        totalGridIn:u32(Number(D[93]||0),Number(D[92]||0))/100,
+        totalGridOut:u32(Number(D[91]||0),Number(D[90]||0))/100,
+        load:s16(Number(D[47]||0)),
+        batteryPower:s16(Number(D[41]||0)),
+        totalChargedIn:Number(D[79]||0)/10,
+        totalChargedOut:Number(D[78]||0)/10,
+        batterySoC:Number(D[103]||0),
+        batteryCapacitykWh:Number(D[106]||0)/10,
+        batteryTemp:Number(D[105]||0),
+        inverterTemp:Number(D[54]||0),
+        inverterPower:s16(Number(D[9]||0)),
+        inverterMode:Number(D[19]||0),
+        GridL1Power:s16(Number(D[6]||0)),
+        GridL2Power:s16(Number(D[7]||0)),
+        GridL3Power:s16(Number(D[8]||0)),
+        _Yield_Total:u32(Number(D[68]||0),Number(D[69]||0))/10,
+        _FeedInEnergy:u32(Number(D[86]||0),Number(D[87]||0))/100,
+        _ConsumeEnergy:u32(Number(D[88]||0),Number(D[89]||0))/100,
+        PowerDCtotal:0,
+        totalPeak:(Number(cfg.peak1)||0)+(Number(cfg.peak2)||0)
+      };
+      s.PowerDCtotal=s.PowerDc1+s.PowerDc2;
+      const totalConsumption=(s.totalGridIn)+(s.YieldAC_Today)-(s.totalGridOut);
+      const selfSuff = totalConsumption===0?0:((s.YieldAC_Today - s.totalGridOut)*100/totalConsumption);
+      s.totalConsumption=totalConsumption;
+      s.selfSufficiencyRate=Math.max(0,Math.min(100,Math.round(selfSuff)));
+      return s;
+    }
+
+    function render(s,cfg){
+      const now=new Date();
+      el('sn').textContent = s.SerNum ?? '—';
+      el('dt').textContent = now.toLocaleString('cs-CZ');
+
+      el('pv-total').textContent = fmtN(s.PowerDCtotal,0);
+      el('pv-1').textContent = fmtN(s.PowerDc1,0);
+      el('pv-2').textContent = fmtN(s.PowerDc2,0);
+      el('pv-dc-today').textContent = fmtN(s.ProductionDC_Today,1);
+      el('bar-pv-total').style.width = pct(s.PowerDCtotal, s.totalPeak) + '%';
+      el('bar-pv-1').style.width = pct(s.PowerDc1, cfg.peak1) + '%';
+      el('bar-pv-2').style.width = pct(s.PowerDc2, cfg.peak2) + '%';
+
+      el('batt-soc').textContent = fmtN(s.batterySoC,0);
+      el('batt-temp').textContent = fmtN(s.batteryTemp,0);
+      el('batt-cap').textContent = fmtN(s.batteryCapacitykWh,1);
+      el('batt-in').textContent = fmtN(s.totalChargedIn,1);
+      el('batt-out').textContent = fmtN(s.totalChargedOut,1);
+
+      const maxWh = Number(cfg.BatteryMaxCapacity)||0;
+      const remainingWh = s.batteryCapacitykWh * 1000;
+      const battPct = (maxWh>0) ? Math.max(0, Math.min(100, (remainingWh / maxWh) * 100)) : 0;
+      el('bar-batt-cap').style.width = battPct + '%';
+
+      const bp = Number(s.batteryPower)||0;
+      const battEl = el('batt-power');
+      battEl.textContent = (bp>=0 ? 'nabíjení ' : 'vybíjení ') + fmtN(Math.abs(bp),0) + ' W';
+      battEl.classList.toggle('ok', bp>=0);
+      battEl.classList.toggle('bad', bp<0);
+      el('bar-batt-soc').style.width = Math.max(0, Math.min(100, s.batterySoC)) + '%';
+
+      el('inv-mode').textContent = '[' + (INV_MODE[s.inverterMode] ?? s.inverterMode) + ']';
+      el('inv-temp').textContent = fmtN(s.inverterTemp,0);
+      el('inv-pwr').textContent = fmtN(s.inverterPower,0);
+      el('bar-inv').style.width = pct(s.inverterPower, cfg.maxPower) + '%';
+      el('l1').textContent = fmtN(s.GridL1Power,0);
+      el('l2').textContent = fmtN(s.GridL2Power,0);
+      el('l3').textContent = fmtN(s.GridL3Power,0);
+      el('inv-ac-today').textContent = fmtN(s.YieldAC_Today,1);
+
+      const fp=Number(s.feedInPower)||0;
+      const gridEl=el('grid-dir');
+      gridEl.textContent = (fp<0 ? 'odběr ' : 'dodávka ') + fmtN(Math.abs(fp),0) + ' W';
+      gridEl.classList.toggle('bad', fp<0);
+      gridEl.classList.toggle('ok', fp>=0);
+      el('grid-in').textContent = fmtN(s.totalGridIn,2);
+      el('grid-out').textContent = fmtN(s.totalGridOut,2);
+
+      el('home-load').textContent = fmtN(s.load,0);
+      el('bar-home').style.width = pct(s.load, cfg.maxLoad) + '%';
+      el('home-cons').textContent = fmtN(s.totalConsumption,1);
+      el('bar-self').style.width = Math.max(0, Math.min(100, s.selfSufficiencyRate)) + '%';
+      el('self').textContent = fmtN(s.selfSufficiencyRate,0);
+    }
+
+    function startPolling(){
+      const cfg = formToCfg();
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      if(timer) clearInterval(timer);
+      setRunning(true);
+      const tick = async ()=>{
+        try{
+          const raw = await callProxy(cfg);
+          const status = buildStatus(raw, cfg);
+          render(status, cfg);
+        }catch(e){
+          console.warn('Chyba čtení', e);
+          el('sn').textContent = '— (chyba spojení)';
+          el('dt').textContent = new Date().toLocaleString('cs-CZ');
+        }
+      };
+      tick();
+      timer = setInterval(tick, cfg.delay*1000);
+    }
+  </script>
+</body>
+</html>

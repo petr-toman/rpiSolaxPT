@@ -15,3 +15,5 @@ services:
     # Pokud víš, že potřebuješ "host" networking (např. přístup k 192.168.x.x přes FW),
     # odkomentuj následující, ale POZOR: funguje jen na Linux hostech.
     # network_mode: "host"
+
+    # rebuild-to je klasicky: docker compose down && docker compose build && docker compose up -d
