@@ -1,19 +1,36 @@
 services:
   web:
-    image: php:8.2-apache
+    build:
+      context: .
+      dockerfile: dockerfile
     container_name: solax-web
     ports:
       - "8088:80"
-    volumes:
-      - ./www:/var/www/html
     environment:
-      # volitelné: povolí režim host network (Linux) => přímý přístup na LAN
-      # TIP: pokud nepotřebuješ, smaž řádek níže a nech default bridge
-      # nicméně u bridge obvykle přístup na LAN taky funguje
+      # Optional: point the proxy to store DB in /var/www/html/storage
+      SLX_DB_PATH: /var/www/html/storage/solax_logs.sqlite
       APACHE_RUN_USER: www-data
       APACHE_RUN_GROUP: www-data
-    # Pokud víš, že potřebuješ "host" networking (např. přístup k 192.168.x.x přes FW),
-    # odkomentuj následující, ale POZOR: funguje jen na Linux hostech.
-    # network_mode: "host"
+    volumes:
+      # --- produkce ---
+      # Persist the SQLite database and any other generated artifacts
+      #- solax_data:/var/www/html/storage
 
-    # rebuild-to je klasicky: docker compose down && docker compose build && docker compose up -d
+      # --- vývoj ---
+      # Kód (HTML, PHP, JS) — živé úpravy bez rebuildů
+      - ./www:/var/www/html:rw
+      # SQLite databáze — přístupná i z hosta (uloží se do ./data/sqlite/ na tvém PC)
+      - ./data/sqlite:/var/www/html/storage:rw
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/healthcheck.php || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  solax_data:
+    driver: local
+
+ # rebuild+inicializace-to je klasicky: docker compose down -v && docker compose build && docker compose up -d
+   

@@ -1,21 +1,32 @@
 FROM php:8.2-apache
 
+# Pokud pdo_sqlite (a sqlite3) nejsou v image, doinstaluj je; jinak nic nedělej.
+# Tím předejdeš chybám typu “already loaded” / “config.m4 not found” při opakovaných buildech.
+RUN set -eux; \
+  if ! php -m | grep -qi pdo_sqlite || ! php -m | grep -qi '^sqlite3$'; then \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      $PHPIZE_DEPS \
+      libsqlite3-dev \
+      curl \
+      iputils-ping \
+    ; \
+    docker-php-ext-install -j"$(nproc)" pdo_sqlite sqlite3; \
+    rm -rf /var/lib/apt/lists/*; \
+  fi
+
+# (volitelně) povol mod_rewrite
+RUN a2enmod rewrite
+
 
 WORKDIR /var/www/html
 
-# Volitelně zapnout mod_rewrite (nepotřebné pro tento basic scénář)
-RUN a2enmod rewrite
+# storage + state (zapisovatelné)
+RUN mkdir -p /var/www/html/storage /var/www/html/state \
+  && chown -R www-data:www-data /var/www/html
 
-RUN apt-get update && apt-get install -y iputils-ping curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Zkopíruj UI + proxy
-# - *.html = tvoje HTML s JS (upravený fetch na /proxy.php)
-# - proxy.php  = PHP proxy výše
+# UI + proxy
 COPY www/* /var/www/html/
-
-# vytvoř zapisovatelný stav
-RUN mkdir -p /var/www/html/state && chown -R www-data:www-data /var/www/html/state
 
 EXPOSE 80
 
