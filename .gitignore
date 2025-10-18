@@ -1,3 +1,4 @@
 .nova
 solax.login
 log/*.json
+webapp/www/storage/

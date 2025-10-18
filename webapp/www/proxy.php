@@ -1,7 +1,7 @@
 <?php
 
 // --- SQLite logging bootstrap ---
-$__SLX_DB_PATH = getenv('SLX_DB_PATH') ?: (__DIR__ . '/solax_logs.sqlite');
+$__SLX_DB_PATH = getenv('SLX_DB_PATH') ?: (__DIR__ . '../storage/solax_logs.sqlite3');
 
 try {
     $__slx_pdo = new PDO('sqlite:' . $__SLX_DB_PATH);

@@ -12,11 +12,11 @@ header('Content-Type: application/json; charset=utf-8');
 try {
     // === Nastavení cesty k DB ===
     // Pokud máš už nějaký sjednocený path (např. jako v proxy.php), uprav zde:
-    //$DB_PATH = __DIR__ . 'data/sqlite/solax_logs.sqlite';
+    //$DB_PATH = __DIR__ . '/www/storage/solax_logs.sqlite3';
     // --- SQLite logging bootstrap ---
-    $DB_PATH = getenv('SLX_DB_PATH') ?: (__DIR__ . '/solax_logs.sqlite');
+    $DB_PATH = getenv('SLX_DB_PATH') ?: (__DIR__ . '../storage/solax_logs.sqlite3');
 
-    $pdo = new PDO('sqlite:' . $DB_PATH, null, null, [
+    $pdo = new PDO( 'sqlite:' . $DB_PATH, null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);

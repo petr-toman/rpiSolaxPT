@@ -26,8 +26,9 @@ RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/Allo
 WORKDIR /var/www/html
 
 # storage + state (zapisovatelné)
-RUN mkdir -p /var/www/html/storage /var/www/html/state \
-  && chown -R www-data:www-data /var/www/html
+RUN mkdir -p /var/www/storage  \
+  && chown -R www-data:www-data /var/www/html  \
+  && chown -R www-data:www-data /var/www/storage
 
 # UI + proxy
 COPY www/* /var/www/html/

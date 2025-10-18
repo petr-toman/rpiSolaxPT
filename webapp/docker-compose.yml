@@ -7,20 +7,20 @@ services:
     ports:
       - "8088:80"
     environment:
-      # Optional: point the proxy to store DB in /var/www/html/storage
-      SLX_DB_PATH: /var/www/html/storage/solax_logs.sqlite
+      # Optional: point the proxy to store DB in /var/www/.....
+      SLX_DB_PATH: /var/www/storage/solax_logs.sqlite3
       APACHE_RUN_USER: www-data
       APACHE_RUN_GROUP: www-data
     volumes:
       # --- produkce ---
       # Persist the SQLite database and any other generated artifacts
-      #- solax_data:/var/www/html/storage
+      #- solax_data:/var/www/storage
 
       # --- vývoj ---
       # Kód (HTML, PHP, JS) — živé úpravy bez rebuildů
       - ./www:/var/www/html:rw
-      # SQLite databáze — přístupná i z hosta (uloží se do ./data/sqlite/ na tvém PC)
-      - ./data/sqlite:/var/www/html/storage:rw
+      # SQLite databáze — přístupná i z hosta (uloží se do ./www/storage na tvém PC)
+      - ./storage:/var/www/storage:rw
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost/healthcheck.php || exit 1"]
       interval: 30s
