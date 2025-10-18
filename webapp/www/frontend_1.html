@@ -1,401 +1,222 @@
 <!doctype html>
 <html lang="cs">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Solax – Live Dashboard</title>
-<style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Solax – Live Dashboard (v1 + app.js)</title>
+  
+  <link rel="stylesheet" href="common.css">
+  <!-- Všechny styly nyní v common.css, ale pro přehlednost zde zůstává i základní stylová část -->
+  <style>
   :root{
-    --bg:#0b0d10; --card:#12161b; --muted:#9aa3ad; --text:#e9eef3;
-    --pos:#39c5ff; --neg:#ff5c6a; --accent:#4ddc6b; --warn:#ffc857;
-    --line:#1f262e;
+    --bg:#0b0f14; --card:#121822; --muted:#99a3b3; --text:#e8eef7;
+    --ok:#1f9d55; --bad:#d64545; --accent:#3b82f6;
+    --border:#1d2633; --panel:#0e1420; --panel-border:#263148;
   }
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Arial}
-  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;align-items:end}
-  header h1{font-size:18px;margin:0;margin-right:auto}
-  label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
-  input,select{background:#101419;border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:10px;min-width:200px}
-  input.small{min-width:100px;width:110px}
-  button{background:var(--accent);border:0;color:#08240f;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
-  button.secondary{background:#23313f;color:var(--text)}
-  button:disabled{opacity:.6;cursor:not-allowed}
-  .grid{display:grid;gap:16px;padding:16px}
-  @media(min-width:900px){.grid{grid-template-columns:repeat(3,1fr)}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
-  .card h2{margin:0 0 12px 0;font-size:16px;color:#dfe7ee}
-  .kpi{display:flex;justify-content:space-between;margin:6px 0}
-  .kpi .label{color:var(--muted)}
-  .bar{height:10px;background:#0c1116;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .fill{height:100%;background:linear-gradient(90deg,var(--pos),#7bd7ff);width:0%}
-  .fill.neg{background:linear-gradient(90deg,var(--neg),#ff9aa3)}
-  .muted{color:var(--muted)}
-  .row{display:flex;gap:12px;flex-wrap:wrap}
-  .hint{color:var(--muted);font-size:12px}
-  .statusline{padding:8px 16px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center;justify-content:space-between}
-  .pill{font-size:12px;color:#0b131a;background:#223244;border:1px solid var(--line);padding:4px 8px;border-radius:999px}
-  .pill.warn{background:#2f2a12;color:#ffe4a3;border-color:#4d3c07}
-  .err{color:#ff9aa3}
+  html,body{ margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,Segoe UI,Roboto,Arial }
+
+  header{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 18px; border-bottom:1px solid var(--border) }
+  h1{ margin:0; font-size:18px; font-weight:600 } .hdr-meta{ margin-left:10px; color:#c9d7ee; font-weight:500; font-size:14px; opacity:.9 }
+  .header-actions{ top:16px; z-index:2001 }
+
+  .small-btn{
+    padding:6px 12px; border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:14px;
+    background:#263248; color:#e8eef7; transition:filter .15s;
+  }
+  .small-btn.ok{ background:var(--ok); color:#fff } .small-btn.bad{ background:var(--bad); color:#fff }
+  .small-btn[disabled]{ opacity:.7; cursor:not-allowed }
+  .small-btn:hover{ filter:brightness(1.07) }
+  .icon-btn{ width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid var(--panel-border); background:var(--panel); cursor:pointer }
+  .icon-btn:hover{ background:#141c2b }
+  .icon{ width:26px; height:26px } .icon path{ stroke-width:2.2 }
+
+  .grid{ display:grid; gap:16px; padding:16px }
+  @media(min-width:900px){ .grid{ grid-template-columns:repeat(3,1fr) } }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px }
+  .card h2{ margin:0 0 12px 0; font-size:16px; color:#dfe7ee }
+  .kpi{ display:flex; justify-content:space-between; margin:6px 0 }
+  .kpi .label{ color:var(--muted) }
+  .bar{ height:10px; background:#0c1116; border:1px solid var(--border) }
+  .bar > i, .fill{ background:linear-gradient(90deg,var(--accent),#22c55e) }
+
+  .backdrop{ background: rgba(10,15,25,.35); z-index:1500 }
+  .sidepanel{ width:360px; background:var(--card); border-left:1px solid var(--border);
+    box-shadow:-4px 0 10px rgba(0,0,0,.3); padding:16px; z-index:2000 }
+  legend{ font-weight:700; margin-bottom:10px }
+  label{ color:var(--muted); margin-top:10px }
+  input,select{
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid #253045;
+    background:var(--panel); color:#e8eef7;
+  }
+  .row{ gap:10px }
 </style>
+
+
+
 </head>
 <body>
+  <header>
+    <h1>Solax – Live Dashboard <span class="hdr-meta">· <span id="dt">—</span></span></h1>
+    <div class="header-actions">
+      <a href="frontend_2_light.html" class="icon-btn" title="Přepnout šablonu">&#127767;</a>
+      <button id="start" class="small-btn ok" aria-pressed="false">Start</button>
+      <button id="stop"  class="small-btn bad" aria-pressed="false" disabled>Stop</button>
+      <button id="toggleSettings" class="icon-btn" aria-controls="settingsPanel" aria-expanded="false" title="Nastavení">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="#c9d7ee" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
 
-<header>
-  <h1>Solax – Live Dashboard</h1>
-  <div>
-    <label>Inverter URL (např. http://192.168.1.50:80)</label>
-    <input id="url" placeholder="http://..." value="http://10.0.0.149"/>
+  <!-- Backdrop + settings panel (ID přesně podle app.js) -->
+  <div id="panelBackdrop" class="backdrop" hidden></div>
+
+  <aside id="settingsPanel" class="sidepanel" hidden>
+    <form id="cfg">
+      <fieldset>
+        <legend>Nastavení</legend>
+
+        <label>API URL (Solax reálné API)
+          <input name="apiUrl" placeholder="http://solax-sim nebo http://192.168.x.y" />
+        </label>
+
+        <label><input type="checkbox" name="sendPwd" /> Posílat heslo z prohlížeče (nedoporučeno)</label>
+        <div id="pwdWrap" style="display:none">
+          <label>Heslo / SN (parametr <code>pwd</code>)
+            <input name="passwd" type="password" autocomplete="current-password" />
+          </label>
+        </div>
+
+        <label>Proxy (volitelné, např. http://localhost:8081)
+          <input name="proxy" placeholder="http://proxy:port" />
+        </label>
+
+        <div class="row">
+          <div>
+            <label>Interval čtení (s)
+              <input name="delay" type="number" min="1" value="4" />
+            </label>
+          </div>
+          <div>
+            <label>Debug (0–2)
+              <input name="debuglevel" type="number" min="0" max="2" value="1" />
+            </label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Peak String 1 (W)
+              <input name="peak1" type="number" min="0" value="4500" />
+            </label>
+          </div>
+          <div>
+            <label>Peak String 2 (W)
+              <input name="peak2" type="number" min="0" value="0" />
+            </label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Max výkon měniče (W)
+              <input name="maxPower" type="number" min="0" value="4500" />
+            </label>
+          </div>
+          <div>
+            <label>Max odběr domu (W)
+              <input name="maxLoad" type="number" min="0" value="16000" />
+            </label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Max energie baterie (Wh)
+              <input name="BatteryMaxCapacity" type="number" min="0" value="10000" />
+            </label>
+          </div>
+        </div>
+
+        <!-- DB ovládání – ID přesně podle app.js -->
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+          <button type="button" id="btnSaveDb"  class="small-btn" style="border:1px solid var(--line)">Uložit do DB</button>
+          <button type="button" id="btnLoadDb" class="small-btn" style="border:1px solid var(--line)">Načíst ze DB</button>
+        </div>
+
+        <div id="loadBox" style="display:none; margin-top:10px; padding:10px; border:1px dashed var(--line); border-radius:12px;">
+          <label>Vyber uložený systém (SN)
+            <select id="cfgList" style="width:100%; padding:8px; border:1px solid var(--line); border-radius:10px;"></select>
+          </label>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button type="button" id="btnLoadSelected" class="small-btn">Načíst</button>
+            <button type="button" id="btnLoadCancel"   class="small-btn">Zavřít</button>
+          </div>
+        </div>
+      </fieldset>
+    </form>
+  </aside>
+
+  <!-- DATA GRID: všechny cílové ID podle app.js -->
+  <div class="grid">
+    <div class="card" id="card-panels">
+      <h2>Panely</h2>
+      <div class="kpi"><span class="label">Celkem</span><span><span id="pv-total">0</span> W</span></div>
+      <div class="bar"><i id="bar-pv-total" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">String 1</span><span><span id="pv-1">0</span> W</span></div>
+      <div class="bar"><i id="bar-pv-1" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">String 2</span><span><span id="pv-2">0</span> W</span></div>
+      <div class="bar"><i id="bar-pv-2" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">Výroba DC dnes</span><span><span id="pv-dc-today">0.0</span> kWh</span></div>
+    </div>
+
+    <div class="card" id="card-batt">
+      <h2>Baterie</h2>
+      <div class="kpi"><span class="label">SoC</span><span><span id="batt-soc">0</span> %</span></div>
+      <div class="bar"><i id="bar-batt-soc" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">Teplota</span><span><span id="batt-temp">0</span> °C</span></div>
+      <div class="kpi"><span class="label">Energie (zbývající)</span><span><span id="batt-cap">0.0</span> kWh</span></div>
+      <div class="bar"><i id="bar-batt-cap" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">Směr</span><span id="batt-power" class="pill">0 W</span></div>
+      <div class="kpi"><span class="label">Dnes nabito</span><span><span id="batt-in">0.0</span> kWh</span></div>
+      <div class="kpi"><span class="label">Dnes vybito</span><span><span id="batt-out">0.0</span> kWh</span></div>
+    </div>
+
+    <div class="card" id="card-inv">
+      <h2>Střídač <span id="inv-mode" class="muted"></span></h2>
+      <div class="kpi"><span class="label">Teplota</span><span><span id="inv-temp">0</span> °C</span></div>
+      <div class="kpi"><span class="label">Výkon</span><span><span id="inv-pwr">0</span> W</span></div>
+      <div class="bar"><i id="bar-inv" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">L1</span><span id="l1">0 W</span></div>
+      <div class="kpi"><span class="label">L2</span><span id="l2">0 W</span></div>
+      <div class="kpi"><span class="label">L3</span><span id="l3">0 W</span></div>
+      <div class="kpi"><span class="label">AC výroba dnes</span><span><span id="inv-ac-today">0.0</span> kWh</span></div>
+    </div>
+
+    <div class="card" id="card-grid">
+      <h2>Distribuční síť</h2>
+      <div class="kpi"><span class="label">Směr</span><span id="grid-dir" class="pill">0 W</span></div>
+      <div class="kpi"><span class="label">Dnes odebráno</span><span><span id="grid-in">0.00</span> kWh</span></div>
+      <div class="kpi"><span class="label">Dnes dodáno</span><span><span id="grid-out">0.00</span> kWh</span></div>
+    </div>
+
+    <div class="card" id="card-home">
+      <h2>Dům</h2>
+      <div class="kpi"><span class="label">Aktuální odběr</span><span><span id="home-load">0</span> W</span></div>
+      <div class="bar"><i id="bar-home" style="width:0%"></i></div>
+      <div class="kpi"><span class="label">Dnes spotřeba</span><span><span id="home-cons">0.0</span> kWh</span></div>
+      <div class="kpi"><span class="label">Soběstačnost</span><span class="pill"><span id="self">0</span> %</span></div>
+      <div class="bar"><i id="bar-self" style="width:0%"></i></div>
+    </div>
+
+    <div class="card">
+      <h2>Systém</h2>
+      <div class="kpi"><span class="label">Sériové číslo</span><span class="pill" id="sn">—</span></div>
+      <div class="kpi"><span class="label">URL</span><span id="meta-url">—</span></div>
+      <div class="kpi"><span class="label">Čas</span><span id="meta-time"><span id="dt">—</span></span></div>
+    </div>
   </div>
-  <div>
-    <label>Heslo / SN (parametr <code>pwd</code>)</label>
-    <input id="pwd" placeholder="****" />
-  </div>
-  <div>
-    <label>Interval poll (s)</label>
-    <input id="interval" class="small" type="number" min="1" value="4" />
-  </div>
-  <div>
-    <label>PV peak1 (W)</label>
-    <input id="peak1" class="small" type="number" value="4500" />
-  </div>
-  <div>
-    <label>PV peak2 (W)</label>
-    <input id="peak2" class="small" type="number" value="0" />
-  </div>
-  <div>
-    <label>Max AC výkon (W)</label>
-    <input id="maxPower" class="small" type="number" value="4500" />
-  </div>
-  <div>
-    <label>Max odběr domu (W)</label>
-    <input id="maxLoad" class="small" type="number" value="16000" />
-  </div>
-  <div class="row">
-    <button id="startBtn">Start</button>
-    <button id="stopBtn" class="secondary" disabled>Stop</button>
-  </div>
-</header>
 
-<div class="grid">
-  <div class="card" id="card-panels">
-    <h2>PANELY</h2>
-    <div class="kpi"><span class="label">Celkem</span><span id="pv-total">–</span></div>
-    <div class="bar"><div id="bar-pv-total" class="fill"></div></div>
-    <div class="kpi"><span class="label">String 1</span><span id="pv1">–</span></div>
-    <div class="bar"><div id="bar-pv1" class="fill"></div></div>
-    <div class="kpi"><span class="label">String 2</span><span id="pv2">–</span></div>
-    <div class="bar"><div id="bar-pv2" class="fill"></div></div>
-    <div class="kpi"><span class="label">Dnes výroba DC</span><span id="prod-dc">–</span></div>
-  </div>
-
-  <div class="card" id="card-battery">
-    <h2>BATERIE</h2>
-    <div class="kpi"><span class="label">SoC</span><span id="soc">–</span></div>
-    <div class="bar"><div id="bar-soc" class="fill"></div></div>
-    <div class="kpi"><span class="label">Teplota</span><span id="batt-temp">–</span></div>
-    <div class="kpi"><span class="label">Kapacita (dnes)</span><span id="batt-cap">–</span></div>
-    <div class="kpi"><span class="label">Směr</span><span id="batt-power">–</span></div>
-    <div class="kpi"><span class="label">Dnes nabito</span><span id="charged-in">–</span></div>
-    <div class="kpi"><span class="label">Dnes vybito</span><span id="charged-out">–</span></div>
-  </div>
-
-  <div class="card" id="card-inverter">
-    <h2>STŘÍDAČ</h2>
-    <div class="kpi"><span class="label">Režim</span><span id="inv-mode">–</span></div>
-    <div class="kpi"><span class="label">Teplota</span><span id="inv-temp">–</span></div>
-    <div class="kpi"><span class="label">Výkon</span><span id="inv-power">–</span></div>
-    <div class="bar"><div id="bar-inv" class="fill"></div></div>
-    <div class="kpi"><span class="label">L1</span><span id="l1">–</span></div>
-    <div class="kpi"><span class="label">L2</span><span id="l2">–</span></div>
-    <div class="kpi"><span class="label">L3</span><span id="l3">–</span></div>
-    <div class="kpi"><span class="label">Dnes výroba AC</span><span id="prod-ac">–</span></div>
-  </div>
-
-  <div class="card" id="card-grid">
-    <h2>DISTRIBUČNÍ SÍŤ</h2>
-    <div class="kpi"><span class="label">Směr</span><span id="grid-dir">–</span></div>
-    <div class="kpi"><span class="label">Dnes odebráno</span><span id="grid-in">–</span></div>
-    <div class="kpi"><span class="label">Dnes dodáno</span><span id="grid-out">–</span></div>
-  </div>
-
-  <div class="card" id="card-home">
-    <h2>DŮM</h2>
-    <div class="kpi"><span class="label">Aktuální odběr</span><span id="home-load">–</span></div>
-    <div class="bar"><div id="bar-home" class="fill"></div></div>
-    <div class="kpi"><span class="label">Dnes spotřeba</span><span id="home-cons">–</span></div>
-    <div class="kpi"><span class="label">Soběstačnost</span><span id="home-ssr">–</span></div>
-  </div>
-
-  <div class="card">
-    <h2>Meta</h2>
-    <div class="kpi"><span class="label">Čas</span><span id="meta-time">–</span></div>
-    <div class="kpi"><span class="label">Zařízení</span><span id="meta-ser">–</span></div>
-    <div class="kpi"><span class="label">URL</span><span id="meta-url">–</span></div>
-    <div class="kpi"><span class="label">Poslední chyba</span><span id="meta-err" class="err">–</span></div>
-    <div class="hint">Všechny snapshoty najdeš v <code>console.log</code>.</div>
-  </div>
-</div>
-
-<div class="statusline">
-  <div id="status-pill" class="pill">Idle</div>
-  <div class="pill warn" id="status-cors" style="display:none">Pozor: Network chyba</div>
-</div>
-
-<script>
-(() => {
-  const $ = (id) => document.getElementById(id);
-  const fmt0 = (n) => Number(n).toLocaleString('cs-CZ', {maximumFractionDigits:0});
-  const fmt1 = (n) => Number(n).toLocaleString('cs-CZ', {minimumFractionDigits:1, maximumFractionDigits:1});
-  const fmt2 = (n) => Number(n).toLocaleString('cs-CZ', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
-  const setBar = (id,val,max,neg=false)=>{
-    const pct = max>0 ? clamp((val/max)*100,0,100) : 0;
-    const el = $(id); if (!el) return;
-    el.style.width = pct + '%';
-    el.classList.toggle('neg', neg);
-  };
-
-  const modeMap = {
-    0:"Waiting",1:"Checking",2:"Normal",3:"Off",4:"Permanent Fault",
-    5:"Updating",6:"EPS Check",7:"EPS Mode",8:"Self Test",9:"Idle",10:"Standby"
-  };
-
-  let timer = null;
-
-  function s16(x){ x = Number(x)||0; return x>=32768? x-65536 : x; }
-  function u32(hi,lo){ return (Number(hi)||0)*65536 + (Number(lo)||0); }
-  function s32(hi,lo){
-    const v = u32(hi,lo);
-    return v>=2147483648 ? v-4294967296 : v;
-  }
-
-  function buildSnapshot(resp, cfg){
-    const R = resp||{};
-    const D = Array.isArray(R.Data) ? R.Data : [];
-    const M = {
-      SerNum: R.sn ?? null,
-      // PV DC
-      PowerDc1: D[14]||0,
-      PowerDc2: D[15]||0,
-      Vdc1: (D[10]||0)/10,
-      Vdc2: (D[11]||0)/10,
-      Idc1: (D[12]||0)/10,
-      Idc2: (D[13]||0)/10,
-      // AC grid instantaneous (fáze)
-      GridAPower: s16(D[6]||0),
-      GridBPower: s16(D[7]||0),
-      GridCPower: s16(D[8]||0),
-      GridAVoltage: (D[0]||0)/10,
-      GridBVoltage: (D[1]||0)/10,
-      GridCVoltage: (D[2]||0)/10,
-      GridACurrent: s16(D[3]||0)/10,
-      GridBCurrent: s16(D[4]||0)/10,
-      GridCCurrent: s16(D[5]||0)/10,
-      FreqacA: (D[16]||0)/100,
-      FreqacB: (D[17]||0)/100,
-      FreqacC: (D[18]||0)/100,
-      // Feed-in (+ export), (- import)
-      //feedInPower: s32(D[34]||0, D[35]||0),
-      feedInPower: s16(D[34]||0),
-
-      // Battery
-      BAT_Power: s16(D[41]||0),
-      BatteryCapacity: D[103]||0, // SoC %
-      BatteryVoltage: u32(D[169]||0, D[170]||0)/100,
-      BatteryTemperature: s16(D[105]||0),
-      // EPS
-      EPSAPower: s16(D[29]||0),
-      EPSBPower: s16(D[30]||0),
-      EPSCPower: s16(D[31]||0),
-      EPSAVoltage: (D[23]||0)/10,
-      EPSBVoltage: (D[24]||0)/10,
-      EPSCVoltage: (D[25]||0)/10,
-      EPSACurrent: s16(D[26]||0)/10,
-      EPSBCurrent: s16(D[27]||0)/10,
-      EPSCCurrent: s16(D[28]||0)/10,
-      // Energies
-      Yield_Today: (D[70]||0)/10,                          // dnešní AC
-      Yield_Total: u32(D[68]||0, D[69]||0)/10,
-      FeedInEnergy: u32(D[86]||0, D[87]||0)/100,
-      ConsumeEnergy: u32(D[88]||0, D[89]||0)/100,
-      // Dnešní souhrny (shoda s pův. skriptem)
-      totalProduction: (D[82]||0)/10,                      // DC today
-      totalGridIn: u32(D[93]||0, D[92]||0)/100,
-      totalGridOut: u32(D[91]||0, D[90]||0)/100,
-      totalChargedIn: (D[79]||0)/10,
-      totalChargedOut: (D[78]||0)/10,
-      // Inverter
-      inverterMode: D[19]||0,
-      inverterTemp: D[54]||0,
-      inverterPower: D[9]||0,
-      // UI aliasy
-      batterySoC: D[103]||0,
-      batteryCap: (D[106]||0)/10,
-      load: s16(D[47]||0),
-      pv1Power: D[14]||0,
-      pv2Power: D[15]||0
-    };
-
-    const totalPower = (M.pv1Power + M.pv2Power);
-    const totalConsumption = M.totalGridIn + M.totalProduction - M.totalGridOut;
-    const selfSuff = totalConsumption === 0 ? 0 :
-      Math.floor(((M.totalProduction - M.totalGridOut) * 100) / totalConsumption);
-
-    return {
-      timestamp: new Date().toISOString(),
-      device: { url: cfg.url, caption: cfg.caption||'Solax', auth: cfg.pwd ? '****' : '' },
-      raw: R,
-      mapped: M,
-      derived: {
-        totalPower,
-        peak1: cfg.peak1,
-        peak2: cfg.peak2,
-        maxPower: cfg.maxPower,
-        maxLoad: cfg.maxLoad,
-        totalConsumption,
-        selfSufficiencyRate: selfSuff
-      }
-    };
-  }
-
-  function render(snap){
-    // meta
-    $('meta-time').textContent = new Date(snap.timestamp).toLocaleString('cs-CZ');
-    $('meta-ser').textContent  = snap.mapped.SerNum ?? '—';
-    $('meta-url').textContent  = snap.device.url ?? '—';
-
-    // PANELY
-    const pv1=snap.mapped.pv1Power, pv2=snap.mapped.pv2Power, total=snap.derived.totalPower;
-    $('pv1').textContent = `${fmt0(pv1)} W`;
-    $('pv2').textContent = `${fmt0(pv2)} W`;
-    $('pv-total').textContent = `${fmt0(total)} W`;
-    $('prod-dc').textContent = `${fmt1(snap.mapped.totalProduction)} kWh`;
-    setBar('bar-pv1', pv1, snap.derived.peak1);
-    setBar('bar-pv2', pv2, snap.derived.peak2);
-    setBar('bar-pv-total', total, snap.derived.peak1 + snap.derived.peak2);
-
-    // BATERIE
-    $('soc').textContent = `${fmt0(snap.mapped.batterySoC)} %`;
-    setBar('bar-soc', snap.mapped.batterySoC, 100);
-    $('batt-temp').textContent = `${fmt0(snap.mapped.BatteryTemperature)} °C`;
-    $('batt-cap').textContent  = `${fmt1(snap.mapped.batteryCap)} kWh`;
-    const bpow = snap.mapped.BAT_Power;
-    $('batt-power').innerHTML  = (bpow>=0)
-      ? `<span style="color:var(--pos)">nabíjení ${fmt0(bpow)} W</span>`
-      : `<span style="color:var(--neg)">vybíjení ${fmt0(bpow)} W</span>`;
-    $('charged-in').textContent  = `${fmt1(snap.mapped.totalChargedIn)} kWh`;
-    $('charged-out').textContent = `${fmt1(snap.mapped.totalChargedOut)} kWh`;
-
-    // STŘÍDAČ
-    $('inv-mode').textContent = modeMap[snap.mapped.inverterMode] ?? `mode ${snap.mapped.inverterMode}`;
-    $('inv-temp').textContent = `${fmt0(snap.mapped.inverterTemp)} °C`;
-    $('inv-power').textContent= `${fmt0(snap.mapped.inverterPower)} W`;
-    setBar('bar-inv', snap.mapped.inverterPower, snap.derived.maxPower);
-    $('l1').textContent = `${fmt0(snap.mapped.GridAPower)} W`;
-    $('l2').textContent = `${fmt0(snap.mapped.GridBPower)} W`;
-    $('l3').textContent = `${fmt0(snap.mapped.GridCPower)} W`;
-    $('prod-ac').textContent = `${fmt1(snap.mapped.Yield_Today)} kWh`;
-
-    // SÍŤ
-    const fin = snap.mapped.feedInPower;
-    $('grid-dir').innerHTML = (fin<0)
-      ? `odběr <span style="color:var(--neg)">${fmt0(fin)} W</span>`
-      : `dodávka <span style="color:var(--pos)">${fmt0(fin)} W</span>`;
-    $('grid-in').textContent  = `${fmt2(snap.mapped.totalGridIn)} kWh`;
-    $('grid-out').textContent = `${fmt2(snap.mapped.totalGridOut)} kWh`;
-
-    // DŮM
-    $('home-load').textContent = `${fmt0(snap.mapped.load)} W`;
-    setBar('bar-home', snap.mapped.load, snap.derived.maxLoad, snap.mapped.load<0);
-    $('home-cons').textContent = `${fmt1(snap.derived.totalConsumption)} kWh`;
-    $('home-ssr').textContent  = `${fmt0(snap.derived.selfSufficiencyRate)} %`;
-  }
-
-  async function tick(cfg){
-    try{
-      $('status-pill').textContent = 'Fetching…';
-      $('status-cors').style.display = 'none';
-      $('meta-err').textContent = '–';
-
-      const body = new URLSearchParams({ optType:'ReadRealTimeData', pwd: cfg.pwd || '' });
-      const target = cfg.cors ? cfg.cors.replace(/\/+$/,'') + '/' + cfg.url.replace(/^https?:\/\//,'') : cfg.url;
-      // Některé CORS proxy očekávají plnou URL v cestě; přizpůsob si dle prostředí.
-
-      const res = await fetch('/proxy.php', {
-  method: 'POST',
-  headers: { 'Content-Type':'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({
-    optType: 'ReadRealTimeData',
-    pwd: cfg.pwd,
-    target: cfg.url     // <- adresa měniče, např. "http://192.168.1.50"
-  }),
-  cache: 'no-store'
-});
-if(!res.ok) throw new Error(`HTTP ${res.status}`);
-
-
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-
-      const snap = buildSnapshot(json, cfg);
-      console.log('Solax snapshot', snap);
-      render(snap);
-
-      $('status-pill').textContent = 'OK';
-    }catch(err){
-      console.error(err);
-      $('status-pill').textContent = 'Error';
-      $('status-cors').style.display = 'inline-block';
-      $('meta-err').textContent = (err && err.message) ? err.message : String(err);
-    }
-  }
-
-  function start(){
-    const cfg = {
-      url: $('url').value.trim(),
-      pwd: $('pwd').value.trim(),
-      interval: Math.max(1, Number($('interval').value||4)),
-      peak1: Number($('peak1').value||2000),
-      peak2: Number($('peak2').value||2000),
-      maxPower: Number($('maxPower').value||5000),
-      maxLoad: Number($('maxLoad').value||10000),
-      caption: 'Solax',
-
-    };
-    if(!cfg.url){ alert('Zadej URL měniče.'); return; }
-    localStorage.setItem('solaxCfg', JSON.stringify(cfg));
-    $('startBtn').disabled = true;
-    $('stopBtn').disabled = false;
-    tick(cfg);
-    timer = setInterval(()=>tick(cfg), cfg.interval*1000);
-  }
-
-  function stop(){
-    if(timer){ clearInterval(timer); timer=null; }
-    $('startBtn').disabled = false;
-    $('stopBtn').disabled = true;
-    $('status-pill').textContent = 'Idle';
-  }
-
-  // UI
-  $('startBtn').addEventListener('click', start);
-  $('stopBtn').addEventListener('click', stop);
-
-  // Autofill z localStorage
-  const saved = localStorage.getItem('solaxCfg');
-  if(saved){
-    try{
-      const c = JSON.parse(saved);
-      if(c.url) $('url').value = c.url;
-      if(c.pwd) $('pwd').value = c.pwd;
-      if(c.interval) $('interval').value = c.interval;
-      if(c.peak1) $('peak1').value = c.peak1;
-      if(c.peak2) $('peak2').value = c.peak2;
-      if(c.maxPower) $('maxPower').value = c.maxPower;
-      if(c.maxLoad) $('maxLoad').value = c.maxLoad;
-      if(c.cors) $('cors').value = c.cors;
-    }catch{}
-  }
-})();
-</script>
+  <!-- VŠECHEN JS je nyní externě -->
+  <script src="app.js"></script>
 </body>
 </html>

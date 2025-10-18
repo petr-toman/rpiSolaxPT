@@ -17,6 +17,10 @@ RUN set -eux; \
 
 # (volitelně) povol mod_rewrite
 RUN a2enmod rewrite
+RUN a2enmod autoindex
+
+# Povolit .htaccess (AllowOverride All) to se hodí pro vývoj, pro produkci dát pak pryč...
+RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
 
 WORKDIR /var/www/html
