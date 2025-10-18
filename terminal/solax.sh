@@ -245,7 +245,7 @@ read SerNum \
   elif [[  $debuglevel > 1  ]]; then
      echo  $response  >> log/last_response.json
      build_status_json >> log/build_status_json.json
-     echo  $data      >> log/data.json
+     echo "["$data"]"  >> log/data.json
   fi
 
 

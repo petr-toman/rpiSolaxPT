@@ -215,8 +215,23 @@
             </div>
           </div>
 
-          <div class="footer">
+       <div class="footer">
             Proxy endpoint je napevno <span class="mono">proxy.php</span>. Z bezpečnostních důvodů je lepší, aby <span class="mono">proxy.php</span> heslo doplnila na serveru.
+          </div>
+                    <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+            <button type="button" id="btnSaveDb" class="small-btn" style="border:1px solid var(--border)">Uložit do DB</button>
+            <button type="button" id="btnLoadDb" class="small-btn" style="border:1px solid var(--border)">Načíst ze DB</button>
+          </div>
+
+          <!-- Malý načítací box pro výběr konfigurace -->
+          <div id="loadBox" style="display:none; margin-top:10px; padding:10px; border:1px dashed var(--border); border-radius:12px;">
+            <label>Vyber uložený systém (SN)
+              <select id="cfgList" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:10px;"></select>
+            </label>
+            <div style="margin-top:10px; display:flex; gap:8px;">
+              <button type="button" id="btnLoadSelected" class="small-btn">Načíst</button>
+              <button type="button" id="btnLoadCancel" class="small-btn">Zavřít</button>
+            </div>
           </div>
         </fieldset>
       </form>
@@ -554,5 +569,108 @@
       timer = setInterval(tick, cfg.delay*1000);
     }
   </script>
+   <script>
+// --- DB API endpoint ---
+const CFG_DB_ENDPOINT = 'fve_config.php';
+
+// Z formuláře -> objekt
+function formToCfgWithSn() {
+  const cfg = formToCfg(); // už existuje
+  // použij aktuální SN ze statusu; pokud není, vyžádej si ho
+  let currentSn = (document.getElementById('sn')?.textContent || '—').trim();
+  if (!currentSn || currentSn === '—' || currentSn.startsWith('—')) {
+    currentSn = prompt('Neznám Sériové číslo (SN). Zadej SN (bude klíčem v DB):', '');
+    if (!currentSn) throw new Error('Chybí SN – zrušeno.');
+  }
+  return { sn: currentSn, ...cfg };
+}
+
+// Naplní formulář z objektu
+function cfgToForm(cfg) {
+  const f = cfgForm;
+  const map = ['apiUrl','delay','debuglevel','peak1','peak2','maxPower','maxLoad','BatteryMaxCapacity','sendPwd','passwd','proxy'];
+  map.forEach(k=>{
+    if (cfg[k] !== undefined) {
+      if (k === 'sendPwd') f[k].checked = !!cfg[k];
+      else f[k].value = cfg[k];
+    }
+  });
+  pwdWrap.style.display = f.sendPwd.checked ? 'block' : 'none';
+  // Ulož i do localStorage, ať je to po ruce
+  localStorage.setItem(CFG_KEY, JSON.stringify(formToCfg()));
+}
+
+// Uložit do SQLite (INSERT/REPLACE)
+async function saveCfgToDb() {
+  try{
+    const data = formToCfgWithSn();
+    const res = await fetch(CFG_DB_ENDPOINT, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'save', data })
+    });
+    const out = await res.json();
+    if (!res.ok || out.status!=='ok') throw new Error(out.error||('HTTP '+res.status));
+    alert('Konfigurace uložena pro SN: ' + data.sn);
+  }catch(e){
+    console.error(e);
+    alert('Uložení selhalo: ' + e.message);
+  }
+}
+
+// Načíst seznam uložených SN
+async function showLoadBox() {
+  try{
+    const res = await fetch(CFG_DB_ENDPOINT + '?action=list');
+    const out = await res.json();
+    if (!res.ok || out.status!=='ok') throw new Error(out.error||('HTTP '+res.status));
+    const list = Array.isArray(out.items) ? out.items : [];
+    const sel = document.getElementById('cfgList');
+    sel.innerHTML = '';
+    if (list.length===0){
+      const opt = document.createElement('option');
+      opt.value=''; opt.textContent='(DB je prázdná)';
+      sel.appendChild(opt);
+    } else {
+      list.forEach(row=>{
+        const label = row.sn + (row.updated_at ? (' – ' + row.updated_at) : '');
+        const opt = document.createElement('option');
+        opt.value = row.sn; opt.textContent = label;
+        sel.appendChild(opt);
+      });
+    }
+    document.getElementById('loadBox').style.display = 'block';
+  }catch(e){
+    console.error(e);
+    alert('Chyba načítání seznamu: ' + e.message);
+  }
+}
+
+// Načíst konkrétní SN a propsat do formuláře
+async function loadCfgFromDb(sn) {
+  try{
+    if (!sn) { alert('Neplatný výběr.'); return; }
+    const res = await fetch(CFG_DB_ENDPOINT + '?action=get&sn=' + encodeURIComponent(sn));
+    const out = await res.json();
+    if (!res.ok || out.status!=='ok' || !out.data) throw new Error(out.error||('Config nenalezen.'));
+    cfgToForm(out.data);
+    alert('Načteno pro SN: ' + sn);
+  }catch(e){
+    console.error(e);
+    alert('Načtení selhalo: ' + e.message);
+  }
+}
+
+// Dráty na tlačítka
+document.getElementById('btnSaveDb').addEventListener('click', saveCfgToDb);
+document.getElementById('btnLoadDb').addEventListener('click', showLoadBox);
+document.getElementById('btnLoadSelected').addEventListener('click', ()=>{
+  const sn = document.getElementById('cfgList').value;
+  loadCfgFromDb(sn);
+});
+document.getElementById('btnLoadCancel').addEventListener('click', ()=>{
+  document.getElementById('loadBox').style.display = 'none';
+});
+</script>
 </body>
 </html>
